@@ -43,7 +43,7 @@ cat >$dest/ups/${prodname_lower}.table <<EOF
    setupEnv()
    proddir()
    EnvSet(${prodname_upper}_VERSION, \${UPS_PROD_VERSION} )
-   EnvSet(${prodname_upper}_INCLUDE, \${UPS_PROD_DIR}/include )
+   EnvSet(${prodname_upper}_INC, \${UPS_PROD_DIR}/include )
    pathPrepend(PATH, \${UPS_PROD_DIR}/bin )
 
    # TODO is it possible to be less specific about these requirements?
