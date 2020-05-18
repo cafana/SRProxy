@@ -13,7 +13,7 @@ prodname_mixed=SRProxy
 prodname_upper=SRPROXY
 
 INCS="BasicTypesProxy.h BasicTypesProxy.cxx"
-BINS='parse_xml.py'
+BINS='gen_srproxy'
 
 dest=$prodname_lower/$version
 
