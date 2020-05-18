@@ -9,6 +9,10 @@ import argparse
 import os
 import sys
 
+# Don't spam pygccxml deprecation warnings
+import warnings
+warnings.simplefilter(action = 'once', category = DeprecationWarning)
+
 # Globals
 fcxx = None
 fhdr = None
