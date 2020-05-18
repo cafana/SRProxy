@@ -60,4 +60,4 @@ ups declare -f NULL -z `pwd`/ \
      ${prodname_lower} ${version} || exit 1
 
 echo You can set up this product with:
-echo setup srproxy $version -z `pwd`/ -z $EXTERNALS
+echo "export PRODUCTS=`pwd`:\$PRODUCTS; setup srproxy $version"
