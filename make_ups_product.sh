@@ -12,8 +12,6 @@ prodname_lower=srproxy
 prodname_mixed=SRProxy
 prodname_upper=SRPROXY
 
-flavor=NULL
-
 INCS="BasicTypesProxy.h BasicTypesProxy.cxx"
 BINS='parse_xml.py'
 
@@ -21,24 +19,24 @@ dest=$prodname_lower/$version
 
 mkdir -p $dest || exit 1
 
-mkdir -p ${dest}/$flavor/include/${prodname_mixed} || exit 1
-echo "Copying files to ${dest}/${flavor}/include"
-cp $INCS $dest/$flavor/include/${prodname_mixed}
+mkdir -p ${dest}/include/${prodname_mixed} || exit 1
+echo "Copying files to ${dest}/include"
+cp $INCS $dest/include/${prodname_mixed}
 
-mkdir -p ${dest}/$flavor/bin || exit 1
-echo "Copying files to ${dest}/${flavor}/bin"
-cp $BINS $dest/$flavor/bin
+mkdir -p ${dest}/bin || exit 1
+echo "Copying files to ${dest}/bin"
+cp $BINS $dest/bin
 
 
 echo "Creating table file.."
-mkdir -p ${dest}/${flavor}/ups || exit 1
+mkdir -p ${dest}/ups || exit 1
 
-cat >$dest/${flavor}/ups/${prodname_lower}.table <<EOF
+cat >$dest/ups/${prodname_lower}.table <<EOF
  FILE=TABLE
  PRODUCT=${prodname_lower}
  VERSION=${version}
 
- FLAVOR=${flavor}
+ FLAVOR=ANY
  QUALIFIERS = ""
 
  ACTION=SETUP
@@ -47,15 +45,19 @@ cat >$dest/${flavor}/ups/${prodname_lower}.table <<EOF
    EnvSet(${prodname_upper}_VERSION, \${UPS_PROD_VERSION} )
    EnvSet(${prodname_upper}_INCLUDE, \${UPS_PROD_DIR}/include )
    pathPrepend(PATH, \${UPS_PROD_DIR}/bin )
+
+   # TODO is it possible to be less specific about these requirements?
+   setupRequired(castxml v0_00_00_f20180122)
+   setupRequired(pygccxml v1_9_1a -q p2715a)
 EOF
 
 echo  "Declaring product ${prodname_lower} with version ${version} to UPS."
 
 # This creates the .version directory
-ups declare -f ${flavor} -z `pwd`/ \
-     -r `pwd`/${prodname_lower}/${version}/${flavor}/ \
+ups declare -f NULL -z `pwd`/ \
+     -r `pwd`/${prodname_lower}/${version}/ \
      -m ${prodname_lower}.table \
      ${prodname_lower} ${version} || exit 1
 
 echo You can set up this product with:
-echo setup srproxy $version -z `pwd`/
+echo setup srproxy $version -z `pwd`/ -z $EXTERNALS
