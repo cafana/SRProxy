@@ -1,5 +1,4 @@
 #include "SRProxy/BasicTypesProxy.h"
-#include "StandardRecord/SREnums.h" // TODO
 
 #include "TFormLeafInfo.h"
 #include "TTreeFormula.h"
@@ -497,25 +496,24 @@ namespace caf
   }
 
   // Enumerate all the variants we expect
+  template class Proxy<char>;
+  template class Proxy<short>;
   template class Proxy<int>;
   template class Proxy<long>;
-  template class Proxy<unsigned int>;
-  template class Proxy<unsigned short>;
-  template class Proxy<unsigned long>;
   template class Proxy<long long>;
+
+  template class Proxy<unsigned char>;
+  template class Proxy<unsigned short>;
+  template class Proxy<unsigned int>;
+  template class Proxy<unsigned long>;
   template class Proxy<unsigned long long>;
-  template class Proxy<short>;
+
   template class Proxy<float>;
   template class Proxy<double>;
-  template class Proxy<bool>;
-  template class Proxy<unsigned char>;
-  template class Proxy<std::string>;
+  template class Proxy<long double>;
 
-  template class Proxy<Det_t>;
-  template class Proxy<View_t>;
-  template class Proxy<gen_process_t>;
-  template class Proxy<generator_>;
-  template class Proxy<mode_type_>;
-  template class Proxy<int_type_>;
+  template class Proxy<bool>;
+
+  template class Proxy<std::string>;
 
 } // namespace
