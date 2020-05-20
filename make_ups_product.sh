@@ -54,10 +54,9 @@ EOF
 echo  "Declaring product ${prodname_lower} with version ${version} to UPS."
 
 # This creates the .version directory
-ups declare -f NULL -z `pwd`/ \
-     -r `pwd`/${prodname_lower}/${version}/ \
-     -m ${prodname_lower}.table \
-     ${prodname_lower} ${version} || exit 1
+ups declare -f NULL -z . \
+    -r ${prodname_lower}/${version}/ \
+    ${prodname_lower} ${version} || exit 1
 
 echo You can set up this product with:
 echo "export PRODUCTS=`pwd`:\$PRODUCTS; setup srproxy $version"
