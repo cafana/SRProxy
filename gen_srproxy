@@ -31,7 +31,7 @@ def short_type(type):
     if not is_vector(type): return str(type)
 
     inner = vector_contents(type)
-    if pygccxml.declarations.is_class(inner): inner = inner.name
+    if pygccxml.declarations.is_class(inner): inner = full_name(inner)
     return 'std::vector<'+str(inner)+'>'
 
 
