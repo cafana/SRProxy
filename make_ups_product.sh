@@ -32,23 +32,23 @@ echo "Creating table file.."
 mkdir -p ${dest}/ups || exit 1
 
 cat >$dest/ups/${prodname_lower}.table <<EOF
- FILE=TABLE
- PRODUCT=${prodname_lower}
- VERSION=${version}
+FILE=TABLE
+PRODUCT=${prodname_lower}
+VERSION=${version}
 
- FLAVOR=ANY
- QUALIFIERS = ""
+FLAVOR=ANY
+QUALIFIERS = ""
 
- ACTION=SETUP
-   setupEnv()
-   proddir()
-   EnvSet(${prodname_upper}_VERSION, \${UPS_PROD_VERSION} )
-   EnvSet(${prodname_upper}_INC, \${UPS_PROD_DIR}/include )
-   pathPrepend(PATH, \${UPS_PROD_DIR}/bin )
+ACTION=SETUP
+  setupEnv()
+  proddir()
+  EnvSet(${prodname_upper}_VERSION, \${UPS_PROD_VERSION} )
+  EnvSet(${prodname_upper}_INC, \${UPS_PROD_DIR}/include )
+  pathPrepend(PATH, \${UPS_PROD_DIR}/bin )
 
-   # TODO is it possible to be less specific about these requirements?
-   setupRequired(castxml v0_00_00_f20180122)
-   setupRequired(pygccxml v1_9_1a -q p2715a)
+  # TODO is it possible to be less specific about these requirements?
+  setupRequired(castxml v0_00_00_f20180122)
+  setupRequired(pygccxml v1_9_1a -q p2715a)
 EOF
 
 echo  "Declaring product ${prodname_lower} with version ${version} to UPS."
