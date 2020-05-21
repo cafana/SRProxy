@@ -276,6 +276,11 @@ def makeParser():
                         help = 'Include the contents of FILE in the declaration of the proxy for CLASS. Multiple allowed',
                         action = 'append')
 
+    parser.add_argument('--extra-cflags',
+                        metavar = 'FLAGS',
+                        help = 'Extra options to pass to castxml compiler (in addition to -std=c++1z)',
+                        default = '')
+
     return parser
 
 
@@ -306,7 +311,7 @@ def main():
         xml_generator_path = generator_path,
         xml_generator = generator_name,
         include_paths = path,
-        cflags = '-std=c++1z -Wno-unknown-warning-option'
+        cflags = '-std=c++1z -Wno-unknown-warning-option '+opts['extra_cflags']
         )
 
     decls = pygccxml.parser.parse([input_header], config)
