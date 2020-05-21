@@ -37,7 +37,7 @@ PRODUCT=${prodname_lower}
 VERSION=${version}
 
 FLAVOR=ANY
-QUALIFIERS = ""
+QUALIFIERS=py2
 
 ACTION=SETUP
   setupEnv()
@@ -46,17 +46,42 @@ ACTION=SETUP
   EnvSet(${prodname_upper}_INC, \${UPS_PROD_DIR}/include )
   pathPrepend(PATH, \${UPS_PROD_DIR}/bin )
 
-  # TODO is it possible to be less specific about these requirements?
   setupRequired(castxml v0_00_00_f20180122)
   setupRequired(pygccxml v1_9_1a -q p2715a)
+
+FLAVOR=ANY
+QUALIFIERS=py3
+
+ACTION=SETUP
+  setupEnv()
+  proddir()
+  EnvSet(${prodname_upper}_VERSION, \${UPS_PROD_VERSION} )
+  EnvSet(${prodname_upper}_INC, \${UPS_PROD_DIR}/include )
+  pathPrepend(PATH, \${UPS_PROD_DIR}/bin )
+
+  setupRequired(castxml v0_00_00_f20180122)
+  setupRequired(pygccxml v1_9_1b -q p372)
 EOF
 
 echo  "Declaring product ${prodname_lower} with version ${version} to UPS."
 
-# This creates the .version directory
-ups declare -f NULL -z . \
-    -r ${prodname_lower}/${version}/ \
-    ${prodname_lower} ${version} || exit 1
+echo ${dest}.version
+mkdir ${dest}.version || exit 1
+
+for qual in py2 py3
+do
+cat > ${dest}.version/NULL_$qual <<EOF
+FILE = version
+PRODUCT = srproxy
+VERSION = $version
+
+FLAVOR = NULL
+QUALIFIERS = "$qual"
+  PROD_DIR = $prodname_lower/$version/
+  UPS_DIR = ups
+  TABLE_FILE = srproxy.table
+EOF
+done
 
 echo You can set up this product with:
-echo "export PRODUCTS=`pwd`:\$PRODUCTS; setup srproxy $version"
+echo "setup $prodname_lower $version -z .:\$PRODUCTS -q py2/py3"
