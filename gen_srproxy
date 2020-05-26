@@ -31,6 +31,7 @@ def short_type(type):
     if not is_vector(type): return str(type)
 
     inner = vector_contents(type)
+    if is_vector(inner): inner = short_type(inner)
     if pygccxml.declarations.is_class(inner): inner = full_name(inner)
     return 'std::vector<'+str(inner)+'>'
 
@@ -214,6 +215,10 @@ def recurse(klass):
 
     if klass in already: return
     already.add(klass)
+
+    if is_vector(klass):
+        recurse(vector_contents(klass))
+        return
 
     base = base_class(klass)
     if base: recurse(base)
