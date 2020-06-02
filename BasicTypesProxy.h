@@ -261,21 +261,16 @@ namespace caf
   {
   public:
     Proxy(TDirectory* d, TTree* tr, const std::string& name, const long& base, int offset)
-      : fIdxP(Proxy<long long>(d, tr, name+"_idx", base, offset))
+      : fFlat(d != 0), fIdxP(Proxy<long long>(d, tr, name+"_idx", base, offset))
     {
       fElems.reserve(N);
       for(unsigned int i = 0; i < N; ++i){
-        if(d){
-          // Flat
+        if(fFlat){
           fElems.emplace_back(d, tr, name, fIdx, i);
         }
         else{
           // Nested
           fElems.emplace_back(nullptr, tr, TString::Format("%s[%d]", name.c_str(), i).Data(), 0, 0);
-          // fIdxP is only needed for the flat case. But we override it here so
-          // that when we try to access it below we don't try to touch the
-          // (potentially non-existent) tree.
-          fIdxP = -1;
         }
       }
     }
@@ -283,8 +278,8 @@ namespace caf
     Proxy& operator=(const Proxy<T[N]>&) = delete;
     Proxy(const Proxy<T[N]>& v) = delete;
 
-    const Proxy<T>& operator[](size_t i) const {fIdx = fIdxP; return fElems[i];}
-          Proxy<T>& operator[](size_t i)       {fIdx = fIdxP; return fElems[i];}
+    const Proxy<T>& operator[](size_t i) const {if(fFlat) fIdx = fIdxP; return fElems[i];}
+          Proxy<T>& operator[](size_t i)       {if(fFlat) fIdx = fIdxP; return fElems[i];}
 
     Proxy<T[N]>& operator=(const T (&x)[N])
     {
@@ -301,6 +296,7 @@ namespace caf
     std::vector<Proxy<T>> fElems;
 
     // Flat
+    bool fFlat;
     Proxy<long long> fIdxP;
     mutable long fIdx;
   };
