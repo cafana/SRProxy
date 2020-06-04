@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cassert>
 #include <iostream>
 #include <set>
 #include <string>
@@ -16,28 +17,6 @@ class TTree;
 
 namespace caf
 {
-  class SRProxySystController
-  {
-  public:
-    static void ResetSysts()
-    {
-      if(fgAnyShifted){
-        ++fgSeqNo;
-        fgAnyShifted = false;
-      }
-    }
-    static bool AnyShifted() {return fgAnyShifted;}
-  protected:
-    template<class T> friend class Proxy;
-    friend class VectorProxyBase;
-
-    static long CurrentSeqNo() {return fgSeqNo;};
-    static void SetShifted() {fgAnyShifted = true;}
-
-    static long fgSeqNo;
-    static bool fgAnyShifted;
-  };
-
   class SRBranchRegistry
   {
   public:
@@ -53,10 +32,14 @@ namespace caf
 
   template<class T> class Proxy;
 
+  class Restorer;
+
   template<class T> class Proxy
   {
   public:
     static_assert(std::is_arithmetic_v<T> || std::is_enum_v<T> || std::is_same_v<T, std::string>, "Invalid type for basic type Proxy");
+
+    friend class Restorer;
 
     Proxy(TDirectory* d, TTree* tr, const std::string& name, const long& base, int offset);
 
@@ -99,7 +82,7 @@ namespace caf
     // Shared
     std::string fName;
     mutable TLeaf* fLeaf;
-    mutable T fVal;
+    mutable U fVal;
     TTree* fTree;
 
     // Flat
@@ -113,11 +96,6 @@ namespace caf
     mutable TTreeFormula* fTTF;
     mutable long fEntry;
     mutable int fSubIdx;
-
-    // Syst
-    T fSystOverrideValue;
-    mutable long fSystOverrideEntry;
-    mutable long fSystOverrideSeqNo;
   };
 
   // Helper functions that don't need to be templated
@@ -303,6 +281,80 @@ namespace caf
 
   // Retain an alias to the old naming scheme for now
   template <class T, unsigned int N> using ArrayProxy = Proxy<T[N]>;
+
+
+  template<class T> class RestorerT
+  {
+  public:
+    ~RestorerT(){for(auto it: fVals) *it.first = it.second;}
+    void Add(T* p, T v){fVals.emplace_back(p, v);}
+
+  protected:
+    std::vector<std::pair<T*, T>> fVals;
+  };
+
+  class Restorer: public
+                  RestorerT<char>,
+                  RestorerT<short>,
+                  RestorerT<int>,
+                  RestorerT<long>,
+                  RestorerT<long long>,
+                  RestorerT<unsigned char>,
+                  RestorerT<unsigned short>,
+                  RestorerT<unsigned int>,
+                  RestorerT<unsigned long>,
+                  RestorerT<unsigned long long>,
+                  RestorerT<float>,
+                  RestorerT<double>,
+                  RestorerT<long double>,
+                  RestorerT<bool>,
+                  RestorerT<std::string>
+  {
+  public:
+    template<class T> void Add(Proxy<T>& p)
+    {
+      RestorerT<typename Proxy<T>::U>::Add(&p.fVal, p.GetValue());
+    }
+  };
+
+  class SRProxySystController
+  {
+  public:
+    static bool AnyShifted()
+    {
+      for(const Restorer* r: fRestorers) if(r) return true;
+      return false;
+    }
+
+    static void BeginTransaction()
+    {
+      fRestorers.push_back(0);
+    }
+
+    static bool InTransaction()
+    {
+      return !fRestorers.empty();
+    }
+
+    static void Rollback()
+    {
+      assert(!fRestorers.empty());
+      delete fRestorers.back();
+      fRestorers.pop_back();
+    }
+
+  protected:
+    template<class T> friend class Proxy;
+
+    template<class T> static void Backup(Proxy<T>& p)
+    {
+      assert(!fRestorers.empty());
+      if(!fRestorers.back()) fRestorers.back() = new Restorer;
+      fRestorers.back()->Add(p);
+    }
+
+    static std::vector<Restorer*> fRestorers;
+  };
 
 } // namespace
 

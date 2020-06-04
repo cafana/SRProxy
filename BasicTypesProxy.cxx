@@ -24,8 +24,7 @@ namespace
 
 namespace caf
 {
-  long SRProxySystController::fgSeqNo = 0;
-  bool SRProxySystController::fgAnyShifted = false;
+  std::vector<Restorer*> SRProxySystController::fRestorers;
 
   std::set<std::string> SRBranchRegistry::fgBranches;
 
@@ -58,8 +57,7 @@ namespace caf
   template<class T> Proxy<T>::Proxy(TDirectory* d, TTree* tr, const std::string& name, const long& base, int offset)
     : fName(name), fLeaf(0), fTree(tr),
       fDir(d), fBase(base), fOffset(offset),
-      fLeafInfo(0), fBranch(0), fTTF(0), fEntry(-1), fSubIdx(0),
-      fSystOverrideEntry(-1), fSystOverrideSeqNo(-1)
+      fLeafInfo(0), fBranch(0), fTTF(0), fEntry(-1), fSubIdx(0)
   {
   }
 
@@ -67,10 +65,7 @@ namespace caf
   template<class T> Proxy<T>::Proxy(const Proxy<T>& p)
     : fName("copy of "+p.fName), fLeaf(0), fTree(p.fDir ? 0 : p.fTree),
       fDir(p.fDir), fBase(p.fBase), fOffset(p.fOffset),
-      fLeafInfo(0), fBranch(0), fTTF(0), fSubIdx(-1),
-      fSystOverrideValue(p.fSystOverrideValue),
-      fSystOverrideEntry(p.fSystOverrideEntry),
-      fSystOverrideSeqNo(p.fSystOverrideSeqNo)
+      fLeafInfo(0), fBranch(0), fTTF(0), fSubIdx(-1)
   {
     // Ensure that the value is evaluated and baked in in the parent object, so
     // that fTTF et al aren't re-evaluated in every single copy.
@@ -82,10 +77,7 @@ namespace caf
   template<class T> Proxy<T>::Proxy(const Proxy&& p)
     : fName("move of "+p.fName), fLeaf(0), fTree(p.fDir ? 0 : p.fTree),
       fDir(p.fDir), fBase(p.fBase), fOffset(p.fOffset),
-      fLeafInfo(0), fBranch(0), fTTF(0), fSubIdx(-1),
-      fSystOverrideValue(p.fSystOverrideValue),
-      fSystOverrideEntry(p.fSystOverrideEntry),
-      fSystOverrideSeqNo(p.fSystOverrideSeqNo)
+      fLeafInfo(0), fBranch(0), fTTF(0), fSubIdx(-1)
   {
     // Ensure that the value is evaluated and baked in in the parent object, so
     // that fTTF et al aren't re-evaluated in every single copy.
@@ -120,13 +112,10 @@ namespace caf
   //----------------------------------------------------------------------
   template<class T> T Proxy<T>::GetValueFlat() const
   {
-    // If there's a valid systematic override value in place, give that
-    if((!fTree || fSystOverrideEntry == fBase+fOffset) &&
-       fSystOverrideSeqNo == SRProxySystController::CurrentSeqNo()){
-      return fSystOverrideValue;
-    }
+    // Valid cached or systematically-shifted value
+    if(fEntry == fBase+fOffset) return (T)fVal;
 
-    if(!fTree) return fVal; // copied or moved?
+    assert(fTree);
 
     if(!fLeaf){
       fLeaf = fTree->GetLeaf(fName.c_str());
@@ -137,9 +126,6 @@ namespace caf
         abort();
       }
 
-      fEntry = -1;
-      fSystOverrideSeqNo = -1;
-
       if(fName.find("_idx") == std::string::npos &&
          fName.find("_length") == std::string::npos &&
          fName.find(".size()") == std::string::npos){ // specific to "nested"
@@ -147,19 +133,13 @@ namespace caf
       }
     }
 
-    if(fEntry == fBase+fOffset) return fVal; // cache up-to-date
-
     fLeaf->GetBranch()->GetEntry(fBase+fOffset);
 
-    //    fVal = (T)fLeaf->GetTypedValue<U>(0);
-    U tmp;
-    GetTypedValueWrapper(fLeaf, tmp, 0);
-    fVal = (T)tmp;
+    GetTypedValueWrapper(fLeaf, fVal, 0);
 
     fEntry = fBase+fOffset;
-    fSystOverrideSeqNo = -1;
 
-    return fVal;
+    return (T)fVal;
   }
 
   template<class T> void EvalInstanceWrapper(TTreeFormula* ttf, T& x)
@@ -176,24 +156,16 @@ namespace caf
   //----------------------------------------------------------------------
   template<class T> T Proxy<T>::GetValueNested() const
   {
-    // If there's a valid systematic override value in place, give that
-    if((!fTree || fSystOverrideEntry == fTree->GetReadEntry()) &&
-       fSystOverrideSeqNo == SRProxySystController::CurrentSeqNo()){
-      return fSystOverrideValue;
-    }
+    // Magic value indicating the value has been set even in the absence of a
+    // tree
+    if(!fTree && fEntry == -100) return (T)fVal;
 
-    // If there's no tree set but we've reached this point, either we were
-    // constructed wrong, or no one has initialized our SystOverride
-    // properly.
     assert(fTree);
 
-    // If we have the value cached already, give that
-    if(fEntry == fTree->GetReadEntry()) return fVal;
+    // Valid cached or systematically-shifted value
+    if(fEntry == fTree->GetReadEntry()) return (T)fVal;
 
-    // We're about to update to the current entry, and we won't be appropriate
-    // for any systematic shift.
     fEntry = fTree->GetReadEntry();
-    fSystOverrideSeqNo = -1;
 
     // First time calling, set up the branches etc
     if(!fTTF){
@@ -246,35 +218,25 @@ namespace caf
         abort();
       }
 
-      //      fVal = (T)fLeaf->GetTypedValue<U>(fSubIdx);
-      U tmp;
-      GetTypedValueWrapper(fLeaf, tmp, fSubIdx);
-      fVal = (T)tmp;
+      GetTypedValueWrapper(fLeaf, fVal, fSubIdx);
     }
 
-    return fVal;
-  }
-
-  //----------------------------------------------------------------------
-  template<class T> void Proxy<T>::SetShifted()
-  {
-    if(fDir){
-      // Flat
-      fSystOverrideEntry = fBase+fOffset;
-    }
-    else{
-      // Nested
-      fSystOverrideEntry = fTree ? fTree->GetReadEntry() : 0;
-    }
-    fSystOverrideSeqNo = SRProxySystController::CurrentSeqNo();
-    SRProxySystController::SetShifted();
+    return (T)fVal;
   }
 
   //----------------------------------------------------------------------
   template<class T> Proxy<T>& Proxy<T>::operator=(T x)
   {
-    fSystOverrideValue = x;
-    SetShifted();
+    if(SRProxySystController::InTransaction()) SRProxySystController::Backup(*this);
+    fVal = x;
+
+    if(fDir){
+      fEntry = fBase+fOffset; // flat
+    }
+    else{
+      fEntry = fTree ? fTree->GetReadEntry() : -100; // nested
+    }
+
     return *this;
   }
 
@@ -282,8 +244,8 @@ namespace caf
   template<class T> Proxy<T>& Proxy<T>::operator+=(T x)
   {
     if constexpr(!std::is_same_v<T, bool>){
-      fSystOverrideValue = T(GetValue() + x);
-      SetShifted();
+      // Do it this way to re-use the systematics logic in operator=
+      *this = T(GetValue() + x);
     }
     else{
       std::cout << "Proxy<bool>::operator+=() is meaningless" << std::endl;
@@ -297,24 +259,22 @@ namespace caf
   //----------------------------------------------------------------------
   template<class T> Proxy<T>& Proxy<T>::operator*=(T x)
   {
-    if constexpr(!std::is_same_v<T, bool>){
-        fSystOverrideValue = T(GetValue() * x);
-      SetShifted();
+    if constexpr(std::is_same_v<T, std::string>){
+      std::cout << "Proxy<std::string>::operator*=() is meaningless" << std::endl;
+      (void)x;
+      abort();
     }
-    else{
+    else if constexpr(std::is_same_v<T, bool>){
       std::cout << "Proxy<bool>::operator*=() is meaningless" << std::endl;
       (void)x;
       abort();
     }
+    else{
+      // Do it this way to re-use the systematics logic in operator=
+      *this = T(GetValue() * x);
+    }
 
     return *this;
-  }
-
-  //----------------------------------------------------------------------
-  template<> Proxy<std::string>& Proxy<std::string>::operator*=(std::string x)
-  {
-    std::cout << "BasicTypesProxy.cxx: Multiplying strings makes no sense..." << std::endl;
-    abort();
   }
 
   //----------------------------------------------------------------------
@@ -453,23 +413,6 @@ namespace caf
       }
     }
 
-
-    // If there's a valid systematic override value in place, give that
-    if(fDir){
-      // Flat
-      if((!fTree || fSystOverrideEntry == fBase+fOffset) &&
-         fSystOverrideSeqNo == SRProxySystController::CurrentSeqNo()){
-        return fSystOverrideSize;
-      }
-    }
-    else{
-      // Nested
-      if((!fTree || fSystOverrideEntry == fTree->GetReadEntry()) &&
-         fSystOverrideSeqNo == SRProxySystController::CurrentSeqNo()){
-        return fSystOverrideSize;
-      }
-    }
-
     return fSize;
   }
 
@@ -482,17 +425,7 @@ namespace caf
   //----------------------------------------------------------------------
   void VectorProxyBase::resize(size_t i)
   {
-    fSystOverrideSize = i;
-    if(fDir){
-      // Flat
-      fSystOverrideEntry = fBase+fOffset;
-    }
-    else{
-      // Nested
-      fSystOverrideEntry = fTree ? fTree->GetReadEntry() : 0;
-    }
-    fSystOverrideSeqNo = SRProxySystController::CurrentSeqNo();
-    SRProxySystController::SetShifted();
+    fSize = i;
   }
 
   // Enumerate all the variants we expect
