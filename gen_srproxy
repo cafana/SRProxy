@@ -48,14 +48,6 @@ def base_class(klass):
     return None
 
 
-def members_inc_base(klass):
-    ret = members(klass)
-    # Recurse into base classes if necessary
-    base = base_class(klass)
-    if base: ret += members_inc_base(base)
-    return ret
-
-
 def is_template(type):
     return pygccxml.declarations.templates.is_instantiation(str(type))
 
@@ -179,7 +171,7 @@ def emit(klass):
 
     base = base_class(klass)
     if base:
-        inits += ['  caf::Proxy<{BTYPE}>(d, tr, name, base, offset)'.format(BTYPE = base.name)]
+        inits += ['  caf::Proxy<{BTYPE}>(d, tr, name, base, offset)'.format(BTYPE = short_type(base))]
 
     for v in members(klass):
         inits += [ '  {NAME}(d, tr, Join(name, "{NAME}"), base, offset)'.format(NAME = v.name)]
@@ -189,9 +181,13 @@ def emit(klass):
     assign_body = []
     checkequals_body = []
 
-    for v in members_inc_base(klass):
+    for v in members(klass):
         assign_body += ['  {NAME} = sr.{NAME};'.format(NAME = v.name)]
         checkequals_body += ['  {NAME}.CheckEquals(sr.{NAME});'.format(NAME = v.name)]
+
+    if base:
+        assign_body += ['  caf::Proxy<{BTYPE}>::operator=(sr);'.format(BTYPE = short_type(base))]
+        checkequals_body += ['  caf::Proxy<{BTYPE}>::CheckEquals(sr);'.format(BTYPE = short_type(base))]
 
     fcxx.write(cxx_body.format(TYPE = full_name(klass),
                                INITS = ',\n'.join(inits),
@@ -203,7 +199,7 @@ def emit(klass):
                                PTYPE = friendly_proxy_name(klass)))
 
     fhdr.write(hdr_body.format(TYPE = full_name(klass),
-                               BASE = ': public Proxy<'+base.name+'>' if base else '',
+                               BASE = ': public Proxy<'+short_type(base)+'>' if base else '',
                                ADDONS = class_to_addons[klass.name] if klass.name in class_to_addons else '',
                                MEMBERS = '\n'.join(memstr)))
 
