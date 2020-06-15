@@ -191,10 +191,10 @@ namespace caf
       size_t fIdx;
     };
 
-    iterator<const T> begin() const {return iterator<const T>(this, 0);}
-    iterator<T> begin() {return iterator<T>(this, 0);}
-    iterator<const T> end() const {return iterator<const T>(this, size());}
-    iterator<T> end() {return iterator<T>(this, size());}
+    iterator<const T> begin() const {return iterator<const T>(this, 0     );}
+    iterator<      T> begin()       {return iterator<      T>(this, 0     );}
+    iterator<const T> end()   const {return iterator<const T>(this, size());}
+    iterator<      T> end()         {return iterator<      T>(this, size());}
 
   protected:
     /// Implies CheckIndex()
@@ -286,8 +286,19 @@ namespace caf
   template<class T> class RestorerT
   {
   public:
-    ~RestorerT(){for(auto it: fVals) *it.first = it.second;}
-    void Add(T* p, T v){fVals.emplace_back(p, v);}
+    ~RestorerT()
+    {
+      // Restore values in reverse, i.e. in first-in, last-out order so that if
+      // a value was edited multiple time it will eventually be restored to its
+      // original value.
+      for(auto it = fVals.rbegin(); it != fVals.rend(); ++it)
+        *it->first = it->second;
+    }
+
+    void Add(T* p, T v)
+    {
+      fVals.emplace_back(p, v);
+    }
 
   protected:
     std::vector<std::pair<T*, T>> fVals;
