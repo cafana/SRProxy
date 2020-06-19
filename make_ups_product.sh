@@ -63,8 +63,6 @@ ACTION=SETUP
   setupRequired(pygccxml v1_9_1b -q p372)
 EOF
 
-echo  "Declaring product ${prodname_lower} with version ${version} to UPS."
-
 echo ${dest}.version
 mkdir ${dest}.version || exit 1
 
@@ -84,4 +82,4 @@ EOF
 done
 
 echo You can set up this product with:
-echo "setup $prodname_lower $version -z .:\$PRODUCTS -q py2/py3"
+echo "setup $prodname_lower $version -z `pwd`:\$PRODUCTS -q py2/py3"
