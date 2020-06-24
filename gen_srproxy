@@ -171,7 +171,7 @@ def emit(klass):
 
     base = base_class(klass)
     if base:
-        inits += ['  caf::Proxy<{BTYPE}>(d, tr, name, base, offset)'.format(BTYPE = short_type(base.name))]
+        inits += ['  caf::Proxy<{BTYPE}>(d, tr, name, base, offset)'.format(BTYPE = short_type(base))]
 
     for v in members(klass):
         inits += [ '  {NAME}(d, tr, Join(name, "{NAME}"), base, offset)'.format(NAME = v.name)]
@@ -186,8 +186,8 @@ def emit(klass):
         checkequals_body += ['  {NAME}.CheckEquals(sr.{NAME});'.format(NAME = v.name)]
 
     if base:
-        assign_body += ['  caf::Proxy<{BTYPE}>::operator=(sr);'.format(BTYPE = short_type(base.name))]
-        checkequals_body += ['  caf::Proxy<{BTYPE}>::CheckEquals(sr);'.format(BTYPE = short_type(base.name))]
+        assign_body += ['  caf::Proxy<{BTYPE}>::operator=(sr);'.format(BTYPE = short_type(base))]
+        checkequals_body += ['  caf::Proxy<{BTYPE}>::CheckEquals(sr);'.format(BTYPE = short_type(base))]
 
     fcxx.write(cxx_body.format(TYPE = full_name(klass),
                                INITS = ',\n'.join(inits),
@@ -199,7 +199,7 @@ def emit(klass):
                                PTYPE = friendly_proxy_name(klass)))
 
     fhdr.write(hdr_body.format(TYPE = full_name(klass),
-                               BASE = ': public Proxy<'+short_type(base.name)+'>' if base else '',
+                               BASE = ': public Proxy<'+short_type(base)+'>' if base else '',
                                ADDONS = class_to_addons[klass.name] if klass.name in class_to_addons else '',
                                MEMBERS = '\n'.join(memstr)))
 
