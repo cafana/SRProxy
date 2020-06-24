@@ -28,7 +28,9 @@ def friendly_proxy_name(klass):
 
 # Drop the allocator argument from vectors
 def short_type(type):
-    if not is_vector(type): return str(type)
+    if not is_vector(type):
+        if hasattr(type, 'name'): return type.name
+        return str(type)
 
     inner = vector_contents(type)
     if is_vector(inner): inner = short_type(inner)
@@ -82,7 +84,7 @@ hdr_prolog = '''{DISCLAIMER}
 # -----------------------------------------------------------------------------
 hdr_body = '''
 /// Proxy for \\ref {TYPE}
-template<> class caf::Proxy<{TYPE}> {BASE}
+template<> class caf::Proxy<{TYPE}>{BASE}
 {{
 public:
   Proxy(TDirectory* d, TTree* tr, const std::string& name, const long& base, int offset);
@@ -199,7 +201,7 @@ def emit(klass):
                                PTYPE = friendly_proxy_name(klass)))
 
     fhdr.write(hdr_body.format(TYPE = full_name(klass),
-                               BASE = ': public Proxy<'+short_type(base)+'>' if base else '',
+                               BASE = ' : public Proxy<'+short_type(base)+'>' if base else '',
                                ADDONS = class_to_addons[klass.name] if klass.name in class_to_addons else '',
                                MEMBERS = '\n'.join(memstr)))
 
