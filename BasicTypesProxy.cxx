@@ -349,6 +349,8 @@ namespace caf
     // foo.bar.baz -> foo.bar.nbaz
     const std::string nname = NName();
 
+    if(!fTree) return nname; // doesn't matter if leaf exists or not
+
     int olderr = gErrorIgnoreLevel;
     gErrorIgnoreLevel = 99999999;
     TTreeFormula ttf(("TTFProxySize-"+fName).c_str(), nname.c_str(), fTree);
