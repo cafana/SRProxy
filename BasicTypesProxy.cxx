@@ -25,6 +25,7 @@ namespace
 namespace caf
 {
   std::vector<Restorer*> SRProxySystController::fRestorers;
+  long long SRProxySystController::fGeneration = 0;
 
   std::set<std::string> SRBranchRegistry::fgBranches;
 

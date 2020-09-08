@@ -350,8 +350,17 @@ namespace caf
     static void Rollback()
     {
       assert(!fRestorers.empty());
+      if(fRestorers.back()) ++fGeneration;
       delete fRestorers.back();
       fRestorers.pop_back();
+    }
+
+    /// May be useful in the implementation of caches that ought to be
+    /// invalidated when systematic shifts are applied.
+    static long long Generation()
+    {
+      if(!InTransaction()) return 0; // nominal
+      return fGeneration;
     }
 
   protected:
@@ -360,11 +369,15 @@ namespace caf
     template<class T> static void Backup(Proxy<T>& p)
     {
       assert(!fRestorers.empty());
-      if(!fRestorers.back()) fRestorers.back() = new Restorer;
+      if(!fRestorers.back()){
+        ++fGeneration;
+        fRestorers.back() = new Restorer;
+      }
       fRestorers.back()->Add(p);
     }
 
     static std::vector<Restorer*> fRestorers;
+    static long long fGeneration;
   };
 
 } // namespace
