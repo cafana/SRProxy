@@ -314,7 +314,8 @@ def main():
         xml_generator_path = generator_path,
         xml_generator = generator_name,
         include_paths = path,
-        cflags = '-std=c++1z -Wno-unknown-warning-option '+opts['extra_cflags']
+        # This _Float16 definition is a hack for clang (c7) builds. TODO revisit
+        cflags = '-std=c++1z -D_Float16=short -Wno-unknown-warning-option '+opts['extra_cflags']
         )
 
     decls = pygccxml.parser.parse([input_header], config)
