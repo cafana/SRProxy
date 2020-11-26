@@ -26,17 +26,20 @@ def friendly_proxy_name(klass):
     return klass.name+'Proxy'
 
 
+def friendly_flat_name(klass):
+    return 'Flat'+klass.name
+
+
 # Drop the allocator argument from vectors
 def short_type(type):
     if not is_vector(type):
-        if hasattr(type, 'name'): return type.name
+        if hasattr(type, 'name'): return full_name(type)
         return str(type)
 
     inner = vector_contents(type)
     if is_vector(inner): inner = short_type(inner)
     if pygccxml.declarations.is_class(inner): inner = full_name(inner)
     return 'std::vector<'+str(inner)+'>'
-
 
 def members(klass):
     # Only accept direct members. Sort to keep .cxx and .h consistent
@@ -82,6 +85,17 @@ hdr_prolog = '''{DISCLAIMER}
 '''
 
 # -----------------------------------------------------------------------------
+flat_hdr_prolog = '''{DISCLAIMER}
+
+#pragma once
+{PROLOG}
+#include "FlatMaker/BasicTypeFlat.h"
+
+#include "{OUTPATH}/FlatFwdDeclare.h"
+
+'''
+
+# -----------------------------------------------------------------------------
 hdr_body = '''
 /// Proxy for \\ref {TYPE}
 template<> class caf::Proxy<{TYPE}>{BASE}
@@ -94,6 +108,22 @@ public:
 
   void CheckEquals(const {TYPE}& sr) const;
 {ADDONS}
+{MEMBERS}
+}};
+'''
+
+# -----------------------------------------------------------------------------
+flat_hdr_body = '''
+/// Flat encoding of \\ref {TYPE}
+template<> class flat::Flat<{TYPE}>{BASE}
+{{
+public:
+  Flat(TTree* tr, const std::string& prefix, const std::string& totsize, const IBranchPolicy* policy);
+
+  void Fill(const {TYPE}& sr);
+  void Clear();
+
+protected:
 {MEMBERS}
 }};
 '''
@@ -116,6 +146,14 @@ namespace
 '''
 
 # -----------------------------------------------------------------------------
+flat_cxx_prolog = '''{DISCLAIMER}
+
+#include "{HEADER}"
+
+#include "{INPUT}"
+'''
+
+# -----------------------------------------------------------------------------
 cxx_body = '''
 caf::Proxy<{TYPE}>::Proxy(TDirectory* d, TTree* tr, const std::string& name, const long& base, int offset) :
 {INITS}
@@ -135,6 +173,24 @@ void caf::Proxy<{TYPE}>::CheckEquals(const {TYPE}& sr) const
 '''
 
 # -----------------------------------------------------------------------------
+flat_cxx_body = '''
+flat::Flat<{TYPE}>::Flat(TTree* tr, const std::string& prefix, const std::string& totsize, const IBranchPolicy* policy) :
+{INITS}
+{{
+}}
+
+void flat::Flat<{TYPE}>::Fill(const {TYPE}& sr)
+{{
+{FILL_BODY}
+}}
+
+void flat::Flat<{TYPE}>::Clear()
+{{
+{CLEAR_BODY}
+}}
+'''
+
+# -----------------------------------------------------------------------------
 fwd_prolog = '''{DISCLAIMER}
 
 #pragma once
@@ -146,6 +202,17 @@ namespace caf
 '''
 
 # -----------------------------------------------------------------------------
+flat_fwd_prolog = '''{DISCLAIMER}
+
+#pragma once
+
+namespace flat
+{{
+  template<class T> class Flat;
+}}
+'''
+
+# -----------------------------------------------------------------------------
 fwd_body = '''
 namespace {NS}
 {{
@@ -153,6 +220,15 @@ namespace {NS}
   using {PTYPE} = caf::Proxy<{TYPE}>;
 }}
 '''
+
+flat_fwd_body = '''
+namespace {NS}
+{{
+  class {TYPE};
+  using {PTYPE} = flat::Flat<{TYPE}>;
+}}
+'''
+
 # -----------------------------------------------------------------------------
 
 def full_namespace(type):
@@ -170,14 +246,25 @@ def full_name(type):
 def emit(klass):
     inits = []
     memstr = []
+    flat_inits = []
+    flat_memstr = []
+    fill_body = []
+    clear_body = []
 
     base = base_class(klass)
     if base:
         inits += ['  caf::Proxy<{BTYPE}>(d, tr, name, base, offset)'.format(BTYPE = short_type(base))]
+        flat_inits += ['  flat::Flat<{BTYPE}>(tr, prefix, totsize, policy)'.format(BTYPE = short_type(base))]
 
     for v in members(klass):
         inits += [ '  {NAME}(d, tr, Join(name, "{NAME}"), base, offset)'.format(NAME = v.name)]
+        flat_inits += [ '  {NAME}(tr, prefix+".{NAME}", totsize, policy)'.format(NAME = v.name)]
+
         memstr += ['  caf::Proxy<{TYPE}> {NAME};'.format(TYPE = short_type(v.decl_type), NAME = v.name)]
+        flat_memstr += ['  flat::Flat<{TYPE}> {NAME};'.format(TYPE = short_type(v.decl_type), NAME = v.name)]
+
+        fill_body += ['  {NAME}.Fill(sr.{NAME});'.format(NAME = v.name)]
+        clear_body += ['  {NAME}.Clear();'.format(NAME = v.name)]
 
 
     assign_body = []
@@ -196,14 +283,27 @@ def emit(klass):
                                ASSIGN_BODY = '\n'.join(assign_body),
                                CHECKEQUALS_BODY = '\n'.join(checkequals_body)))
 
+    fcxx_flat.write(flat_cxx_body.format(TYPE = full_name(klass),
+                                         INITS = ',\n'.join(flat_inits),
+                                         FILL_BODY = '\n'.join(fill_body),
+                                         CLEAR_BODY = '\n'.join(clear_body)))
+
     ffwd.write(fwd_body.format(NS = full_namespace(klass),
                                TYPE = klass.name,
                                PTYPE = friendly_proxy_name(klass)))
+
+    ffwd_flat.write(flat_fwd_body.format(NS = full_namespace(klass),
+                                         TYPE = klass.name,
+                                         PTYPE = friendly_flat_name(klass)))
 
     fhdr.write(hdr_body.format(TYPE = full_name(klass),
                                BASE = ' : public Proxy<'+short_type(base)+'>' if base else '',
                                ADDONS = class_to_addons[klass.name] if klass.name in class_to_addons else '',
                                MEMBERS = '\n'.join(memstr)))
+
+    fhdr_flat.write(flat_hdr_body.format(TYPE = full_name(klass),
+                                         BASE = ' : public Flat<'+short_type(base)+'>' if base else '',
+                                         MEMBERS = '\n'.join(flat_memstr)))
 
 
 already = set()
@@ -334,20 +434,35 @@ def main():
 
 
     global fcxx, fhdr, ffwd
+    global fcxx_flat, fhdr_flat, ffwd_flat
     fcxx = open(opts['output']+'.cxx', 'w')
     fhdr = open(opts['output']+'.h', 'w')
     ffwd = open('FwdDeclare.h', 'w')
 
+    fhdr_flat = open('FlatRecord.h', 'w')
+    fcxx_flat = open('FlatRecord.cxx', 'w')
+    ffwd_flat = open('FlatFwdDeclare.h', 'w')
+
     fcxx.write(cxx_prolog.format(DISCLAIMER = disclaimer,
                                  INPUT = opts['input'],
                                  HEADER = opts['output_path']+'/'+opts['output']+'.h'))
+
+    fcxx_flat.write(flat_cxx_prolog.format(DISCLAIMER = disclaimer,
+                                           INPUT = opts['input'],
+                                           HEADER = opts['output_path']+'/'+opts['output']+'.h'))
 
     prolog = open(opts['prolog']).read() if opts['prolog'] else ''
     fhdr.write(hdr_prolog.format(DISCLAIMER = disclaimer,
                                  PROLOG = prolog,
                                  OUTPATH = opts['output_path']))
 
+    fhdr_flat.write(flat_hdr_prolog.format(DISCLAIMER = disclaimer,
+                                           PROLOG = prolog,
+                                           OUTPATH = opts['output_path']))
+
     ffwd.write(fwd_prolog.format(DISCLAIMER = disclaimer))
+
+    ffwd_flat.write(flat_fwd_prolog.format(DISCLAIMER = disclaimer))
 
     recurse(top)
 
