@@ -55,16 +55,25 @@ namespace caf
   }
 
   //----------------------------------------------------------------------
+  CAFType GetCAFType(const TDirectory* dir, TTree* tr)
+  {
+    if(dir) return kFlatMultiTree;
+    if(tr->GetNbranches() > 1) return kFlatSingleTree;
+    return kNested;
+  }
+
+  //----------------------------------------------------------------------
   template<class T> Proxy<T>::Proxy(TDirectory* d, TTree* tr, const std::string& name, const long& base, int offset)
-    : fName(name), fLeaf(0), fTree(tr),
-      fDir(d), fBase(base), fOffset(offset),
+    : fName(name), fType(GetCAFType(d, tr)),
+      fLeaf(0), fTree(tr), fDir(d), fBase(base), fOffset(offset),
       fLeafInfo(0), fBranch(0), fTTF(0), fEntry(-1), fSubIdx(0)
   {
   }
 
   //----------------------------------------------------------------------
   template<class T> Proxy<T>::Proxy(const Proxy<T>& p)
-    : fName("copy of "+p.fName), fLeaf(0), fTree(p.fDir ? 0 : p.fTree),
+    : fName("copy of "+p.fName), fType(p.fType),
+      fLeaf(0), fTree(p.fDir ? 0 : p.fTree),
       fDir(p.fDir), fBase(p.fBase), fOffset(p.fOffset),
       fLeafInfo(0), fBranch(0), fTTF(0), fSubIdx(-1)
   {
@@ -76,7 +85,8 @@ namespace caf
 
   //----------------------------------------------------------------------
   template<class T> Proxy<T>::Proxy(const Proxy&& p)
-    : fName("move of "+p.fName), fLeaf(0), fTree(p.fDir ? 0 : p.fTree),
+    : fName("move of "+p.fName), fType(p.fType),
+      fLeaf(0), fTree(p.fDir ? 0 : p.fTree),
       fDir(p.fDir), fBase(p.fBase), fOffset(p.fOffset),
       fLeafInfo(0), fBranch(0), fTTF(0), fSubIdx(-1)
   {
@@ -96,7 +106,12 @@ namespace caf
   //----------------------------------------------------------------------
   template<class T> T Proxy<T>::GetValue() const
   {
-    if(fDir) return GetValueFlat(); else return GetValueNested();
+    switch(fType){
+    case kNested: return GetValueNested();
+    case kFlatMultiTree: return GetValueFlatMulti();
+    case kFlatSingleTree: return GetValueFlatSingle();
+    default: abort();
+    }
   }
 
   template<class T> void GetTypedValueWrapper(TLeaf* leaf, T& x, int subidx)
@@ -111,10 +126,50 @@ namespace caf
   }
 
   //----------------------------------------------------------------------
-  template<class T> T Proxy<T>::GetValueFlat() const
+  template<class T> T Proxy<T>::GetValueFlatSingle() const
+  {
+    // Magic value indicating the value has been set even in the absence of a
+    // tree
+    if(!fTree && fEntry == -100) return (T)fVal;
+
+    assert(fTree);
+
+    // Valid cached or systematically-shifted value
+    if(fEntry == fTree->GetReadEntry()) return (T)fVal;
+
+    fEntry = fTree->GetReadEntry();
+
+    assert(fTree);
+
+    if(!fLeaf){
+      fLeaf = fTree->GetLeaf(fName.c_str());
+      if(!fLeaf){
+        std::cout << std::endl << "BasicTypeProxy: Branch '" << fName
+                  << "' not found in tree '" << fTree->GetName() << "'."
+                  << std::endl;
+        abort();
+      }
+
+      fBranch = fLeaf->GetBranch();
+
+      if(fName.find("..idx") == std::string::npos &&
+         fName.find("..length") == std::string::npos){
+        SRBranchRegistry::AddBranch(fName);
+      }
+    }
+
+    fBranch->GetEntry(fEntry);
+
+    GetTypedValueWrapper(fLeaf, fVal, fBase+fOffset);
+
+    return (T)fVal;
+  }
+
+  template<class T> T Proxy<T>::GetValueFlatMulti() const
   {
     // Valid cached or systematically-shifted value
     if(fEntry == fBase+fOffset) return (T)fVal;
+    fEntry = fBase+fOffset;
 
     assert(fTree);
 
@@ -137,8 +192,6 @@ namespace caf
     fLeaf->GetBranch()->GetEntry(fBase+fOffset);
 
     GetTypedValueWrapper(fLeaf, fVal, 0);
-
-    fEntry = fBase+fOffset;
 
     return (T)fVal;
   }
@@ -231,11 +284,11 @@ namespace caf
     if(SRProxySystController::InTransaction()) SRProxySystController::Backup(*this);
     fVal = x;
 
-    if(fDir){
+    if(fType == kFlatMultiTree){
       fEntry = fBase+fOffset; // flat
     }
     else{
-      fEntry = fTree ? fTree->GetReadEntry() : -100; // nested
+      fEntry = fTree ? fTree->GetReadEntry() : -100; // nested or single-tree
     }
 
     return *this;
@@ -291,10 +344,9 @@ namespace caf
   VectorProxyBase::VectorProxyBase(TDirectory* d, TTree* tr,
                                    const std::string& name,
                                    const long& base, int offset)
-    : fDir(d), fTree(tr), fName(name), fBase(base), fOffset(offset), fSize(d, tr, fDir ? fName+"_length" : AtSize(), base, offset), fIdxP(d, tr, name+"_idx", base, offset),
-      fSystOverrideSize(-1),
-      fSystOverrideEntry(-1),
-      fSystOverrideSeqNo(-1),
+    : fDir(d), fTree(tr), fName(name), fType(GetCAFType(d, tr)),
+      fBase(base), fOffset(offset), fSize(d, tr, LengthField(), base, offset),
+      fIdxP(d, tr, IndexField(), base, offset),
       fWarn(false)
   {
   }
@@ -337,9 +389,11 @@ namespace caf
   }
 
   //----------------------------------------------------------------------
-  // Used by nested variant
-  std::string VectorProxyBase::AtSize() const
+  std::string VectorProxyBase::LengthField() const
   {
+    if(fType == kFlatMultiTree) return fName+"_length";
+    if(fType == kFlatSingleTree) return fName+"..length";
+
     // Counts exist, but with non-systematic names
     if(fName == "rec.me.trkkalman"  ) return "rec.me.nkalman";
     if(fName == "rec.me.trkdiscrete") return "rec.me.ndiscrete";
@@ -370,6 +424,14 @@ namespace caf
   }
 
   //----------------------------------------------------------------------
+  std::string VectorProxyBase::IndexField() const
+  {
+    if(fType == kFlatMultiTree) return fName+"_idx";
+    if(fType == kFlatSingleTree) return fName+"..idx";
+    return "unused_index_field";
+  }
+
+  //----------------------------------------------------------------------
   // Used by nested variant
   std::string VectorProxyBase::Subscript(int i) const
   {
@@ -387,6 +449,8 @@ namespace caf
   //----------------------------------------------------------------------
   TTree* VectorProxyBase::GetTreeForName() const
   {
+    if(fType == kFlatSingleTree) return fTree; // all in the same tree
+
     TTree* tr = (TTree*)fDir->Get(fName.c_str());
     if(!tr){
       std::cout << "Couldn't find TTree " << fName

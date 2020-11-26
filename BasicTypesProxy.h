@@ -30,6 +30,15 @@ namespace caf
     static std::set<std::string> fgBranches;
   };
 
+  enum CAFType
+  {
+    kNested,
+    kFlatMultiTree,
+    kFlatSingleTree
+  };
+
+  CAFType GetCAFType(const TDirectory* dir, TTree* tr);
+
   template<class T> class Proxy;
 
   class Restorer;
@@ -70,8 +79,9 @@ namespace caf
     void CheckEquals(const T& x) const;
 
   protected:
-    T GetValueFlat() const;
     T GetValueNested() const;
+    T GetValueFlatSingle() const;
+    T GetValueFlatMulti() const;
 
     void SetShifted();
 
@@ -81,6 +91,7 @@ namespace caf
 
     // Shared
     std::string fName;
+    CAFType fType;
     mutable TLeaf* fLeaf;
     mutable U fVal;
     TTree* fTree;
@@ -117,8 +128,10 @@ namespace caf
     void CheckIndex(size_t i) const;
     TTree* GetTreeForName() const;
 
+    std::string LengthField() const;
+    std::string IndexField() const;
+
     // Used by nested variant
-    std::string AtSize() const;
     std::string Subscript(int i) const;
 
     /// Helper for AtSize()
@@ -127,15 +140,12 @@ namespace caf
     TDirectory* fDir;
     TTree* fTree;
     std::string fName;
+    CAFType fType;
     const long& fBase;
     int fOffset;
     Proxy<int> fSize;
     Proxy<long long> fIdxP;
     mutable long fIdx;
-
-    size_t fSystOverrideSize;
-    mutable long fSystOverrideEntry;
-    mutable long fSystOverrideSeqNo;
 
     mutable bool fWarn;
   };
@@ -203,7 +213,7 @@ namespace caf
       CheckIndex(i);
       if(i >= fElems.size()) fElems.resize(i+1);
 
-      if(fDir){
+      if(fType != kNested){
         // Flat
         fIdx = fIdxP; // store into an actual value we can point to
         if(!fElems[i]){
@@ -239,11 +249,11 @@ namespace caf
   {
   public:
     Proxy(TDirectory* d, TTree* tr, const std::string& name, const long& base, int offset)
-      : fFlat(d != 0), fIdxP(Proxy<long long>(d, tr, name+"_idx", base, offset))
+      : fType(GetCAFType(d, tr)), fIdxP(Proxy<long long>(d, tr, IndexField(name), base, offset))
     {
       fElems.reserve(N);
       for(unsigned int i = 0; i < N; ++i){
-        if(fFlat){
+        if(fType != kNested){
           fElems.emplace_back(d, tr, name, fIdx, i);
         }
         else{
@@ -256,8 +266,8 @@ namespace caf
     Proxy& operator=(const Proxy<T[N]>&) = delete;
     Proxy(const Proxy<T[N]>& v) = delete;
 
-    const Proxy<T>& operator[](size_t i) const {if(fFlat) fIdx = fIdxP; return fElems[i];}
-          Proxy<T>& operator[](size_t i)       {if(fFlat) fIdx = fIdxP; return fElems[i];}
+    const Proxy<T>& operator[](size_t i) const {if(fType != kNested) fIdx = fIdxP; return fElems[i];}
+          Proxy<T>& operator[](size_t i)       {if(fType != kNested) fIdx = fIdxP; return fElems[i];}
 
     Proxy<T[N]>& operator=(const T (&x)[N])
     {
@@ -271,10 +281,18 @@ namespace caf
     }
 
   protected:
+    std::string IndexField(const std::string& name) const
+    {
+      if(fType == kFlatMultiTree) return name+"_idx";
+      if(fType == kFlatSingleTree) return name+"..idx";
+      return "unused index field";
+    }
+
+    CAFType fType;
+
     std::vector<Proxy<T>> fElems;
 
     // Flat
-    bool fFlat;
     Proxy<long long> fIdxP;
     mutable long fIdx;
   };
