@@ -468,9 +468,10 @@ namespace caf
   {
     if(fType != kFlatMultiTree) return fTree; // all in the same tree
 
-    TTree* tr = (TTree*)fDir->Get(fName.c_str());
+    const std::string sname = StripSubscripts(fName);
+    TTree* tr = (TTree*)fDir->Get(sname.c_str());
     if(!tr){
-      std::cout << "Couldn't find TTree " << fName
+      std::cout << "Couldn't find TTree " << sname
                 << " in " << fDir->GetName() << std::endl;
       abort();
     }
