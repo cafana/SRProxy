@@ -1,12 +1,9 @@
 #pragma once
 
 #include <cassert>
-#include <iostream>
 #include <set>
 #include <string>
 #include <vector>
-
-#include "TString.h"
 
 class TDirectory;
 class TFormLeafInfo;
@@ -38,6 +35,9 @@ namespace caf
   };
 
   CAFType GetCAFType(const TDirectory* dir, TTree* tr);
+
+  /// Count the subscripts in the name
+  int NSubscripts(const std::string& name);
 
   template<class T> class Proxy;
 
@@ -83,6 +83,9 @@ namespace caf
     T GetValueFlatSingle() const;
     T GetValueFlatMulti() const;
 
+    // Name without any subscripts
+    std::string StrippedName() const;
+
     void SetShifted();
 
     // The type to fetch from the TLeaf - get template errors inside of ROOT
@@ -119,6 +122,8 @@ namespace caf
     VectorProxyBase& operator=(const VectorProxyBase&) = delete;
     VectorProxyBase(const VectorProxyBase& v) = delete;
 
+    ~VectorProxyBase();
+
     std::string Name() const {return fName;}
 
     size_t size() const;
@@ -131,10 +136,10 @@ namespace caf
     std::string LengthField() const;
     std::string IndexField() const;
 
-    // Used by nested variant
+    /// add [i], or something more complex for nested CAFs
     std::string Subscript(int i) const;
 
-    /// Helper for AtSize()
+    /// Helper for LengthField()
     std::string NName() const;
 
     TDirectory* fDir;
@@ -144,7 +149,7 @@ namespace caf
     const long& fBase;
     int fOffset;
     Proxy<int> fSize;
-    Proxy<long long> fIdxP;
+    Proxy<long long>* fIdxP;
     mutable long fIdx;
 
     mutable bool fWarn;
@@ -213,17 +218,9 @@ namespace caf
       CheckIndex(i);
       if(i >= fElems.size()) fElems.resize(i+1);
 
-      if(fType != kNested){
-        // Flat
-        fIdx = fIdxP; // store into an actual value we can point to
-        if(!fElems[i]){
-          fElems[i] = new Proxy<T>(fDir, GetTreeForName(), fName, fIdx, i);
-        }
-      }
-      else{
-        // Nested
-        if(!fElems[i]) fElems[i] = new Proxy<T>(0, fTree, Subscript(i), 0, 0);
-      }
+      if(fIdxP) fIdx = *fIdxP; // store into an actual value we can point to
+
+      if(!fElems[i]) fElems[i] = new Proxy<T>(fDir, GetTreeForName(), Subscript(i), fIdx, i);
     }
 
     mutable std::vector<Proxy<T>*> fElems;
@@ -249,25 +246,31 @@ namespace caf
   {
   public:
     Proxy(TDirectory* d, TTree* tr, const std::string& name, const long& base, int offset)
-      : fType(GetCAFType(d, tr)), fIdxP(Proxy<long long>(d, tr, IndexField(name), base, offset))
+      : fType(GetCAFType(d, tr)), fIdxP(0), fIdx(0)
     {
+      // Only used for flat trees. For single-tree, only needed for objects not
+      // at top-level.
+      if(fType == kFlatMultiTree ||
+         (fType == kFlatSingleTree && NSubscripts(name) > 0)){
+        fIdxP = new Proxy<long long>(d, tr, IndexField(name), base, offset);
+      }
+
       fElems.reserve(N);
       for(unsigned int i = 0; i < N; ++i){
-        if(fType != kNested){
-          fElems.emplace_back(d, tr, name, fIdx, i);
-        }
-        else{
-          // Nested
-          fElems.emplace_back(nullptr, tr, TString::Format("%s[%d]", name.c_str(), i).Data(), 0, 0);
-        }
+        fElems.emplace_back(d, tr, name+"["+std::to_string(i)+"]", fIdx, i);
       }
+    }
+
+    ~Proxy()
+    {
+      delete fIdxP;
     }
 
     Proxy& operator=(const Proxy<T[N]>&) = delete;
     Proxy(const Proxy<T[N]>& v) = delete;
 
-    const Proxy<T>& operator[](size_t i) const {if(fType != kNested) fIdx = fIdxP; return fElems[i];}
-          Proxy<T>& operator[](size_t i)       {if(fType != kNested) fIdx = fIdxP; return fElems[i];}
+    const Proxy<T>& operator[](size_t i) const {if(fIdxP) fIdx = *fIdxP; return fElems[i];}
+          Proxy<T>& operator[](size_t i)       {if(fIdxP) fIdx = *fIdxP; return fElems[i];}
 
     Proxy<T[N]>& operator=(const T (&x)[N])
     {
@@ -285,7 +288,7 @@ namespace caf
     {
       if(fType == kFlatMultiTree) return name+"_idx";
       if(fType == kFlatSingleTree) return name+"..idx";
-      return "unused index field";
+      abort();
     }
 
     CAFType fType;
@@ -293,7 +296,7 @@ namespace caf
     std::vector<Proxy<T>> fElems;
 
     // Flat
-    Proxy<long long> fIdxP;
+    Proxy<long long>* fIdxP;
     mutable long fIdx;
   };
 

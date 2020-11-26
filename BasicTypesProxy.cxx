@@ -63,6 +63,12 @@ namespace caf
   }
 
   //----------------------------------------------------------------------
+  int NSubscripts(const std::string& name)
+  {
+    return std::count(name.begin(), name.end(), '[');
+  }
+
+  //----------------------------------------------------------------------
   template<class T> Proxy<T>::Proxy(TDirectory* d, TTree* tr, const std::string& name, const long& base, int offset)
     : fName(name), fType(GetCAFType(d, tr)),
       fLeaf(0), fTree(tr), fDir(d), fBase(base), fOffset(offset),
@@ -136,15 +142,15 @@ namespace caf
 
     // Valid cached or systematically-shifted value
     if(fEntry == fTree->GetReadEntry()) return (T)fVal;
-
     fEntry = fTree->GetReadEntry();
 
     assert(fTree);
 
     if(!fLeaf){
-      fLeaf = fTree->GetLeaf(fName.c_str());
+      const std::string sname = StrippedName();
+      fLeaf = fTree->GetLeaf(sname.c_str());
       if(!fLeaf){
-        std::cout << std::endl << "BasicTypeProxy: Branch '" << fName
+        std::cout << std::endl << "BasicTypeProxy: Branch '" << sname
                   << "' not found in tree '" << fTree->GetName() << "'."
                   << std::endl;
         abort();
@@ -154,7 +160,7 @@ namespace caf
 
       if(fName.find("..idx") == std::string::npos &&
          fName.find("..length") == std::string::npos){
-        SRBranchRegistry::AddBranch(fName);
+        SRBranchRegistry::AddBranch(sname);
       }
     }
 
@@ -165,6 +171,7 @@ namespace caf
     return (T)fVal;
   }
 
+  //----------------------------------------------------------------------
   template<class T> T Proxy<T>::GetValueFlatMulti() const
   {
     // Valid cached or systematically-shifted value
@@ -174,22 +181,25 @@ namespace caf
     assert(fTree);
 
     if(!fLeaf){
-      fLeaf = fTree->GetLeaf(fName.c_str());
+      const std::string sname = StrippedName();
+      fLeaf = fTree->GetLeaf(sname.c_str());
       if(!fLeaf){
-        std::cout << std::endl << "BasicTypeProxy: Branch '" << fName
+        std::cout << std::endl << "BasicTypeProxy: Branch '" << sname
                   << "' not found in tree '" << fTree->GetName() << "'."
                   << std::endl;
         abort();
       }
 
+      fBranch = fLeaf->GetBranch();
+
       if(fName.find("_idx") == std::string::npos &&
          fName.find("_length") == std::string::npos &&
          fName.find(".size()") == std::string::npos){ // specific to "nested"
-        SRBranchRegistry::AddBranch(fName);
+        SRBranchRegistry::AddBranch(sname);
       }
     }
 
-    fLeaf->GetBranch()->GetEntry(fBase+fOffset);
+    fBranch->GetEntry(fBase+fOffset);
 
     GetTypedValueWrapper(fLeaf, fVal, 0);
 
@@ -218,7 +228,6 @@ namespace caf
 
     // Valid cached or systematically-shifted value
     if(fEntry == fTree->GetReadEntry()) return (T)fVal;
-
     fEntry = fTree->GetReadEntry();
 
     // First time calling, set up the branches etc
@@ -276,6 +285,20 @@ namespace caf
     }
 
     return (T)fVal;
+  }
+
+  //----------------------------------------------------------------------
+  template<class T> std::string Proxy<T>::StrippedName() const
+  {
+    std::string ret;
+    ret.reserve(fName.size());
+    bool insub = false;
+    for(char c: fName){
+      /**/ if(c == '[') insub = true;
+      else if(c == ']') insub = false;
+      else if(!insub) ret += c;
+    }
+    return ret;
   }
 
   //----------------------------------------------------------------------
@@ -346,9 +369,21 @@ namespace caf
                                    const long& base, int offset)
     : fDir(d), fTree(tr), fName(name), fType(GetCAFType(d, tr)),
       fBase(base), fOffset(offset), fSize(d, tr, LengthField(), base, offset),
-      fIdxP(d, tr, IndexField(), base, offset),
+      fIdxP(0), fIdx(0),
       fWarn(false)
   {
+    // Only used for flat trees. For single-tree, only needed for objects not
+    // at top-level.
+    if(fType == kFlatMultiTree ||
+       (fType == kFlatSingleTree && NSubscripts(fName) > 0)){
+      fIdxP = new Proxy<long long>(d, tr, IndexField(), base, offset);
+    }
+  }
+
+  //----------------------------------------------------------------------
+  VectorProxyBase::~VectorProxyBase()
+  {
+    delete fIdxP;
   }
 
   //----------------------------------------------------------------------
@@ -428,28 +463,27 @@ namespace caf
   {
     if(fType == kFlatMultiTree) return fName+"_idx";
     if(fType == kFlatSingleTree) return fName+"..idx";
-    return "unused_index_field";
+    abort();
   }
 
   //----------------------------------------------------------------------
-  // Used by nested variant
   std::string VectorProxyBase::Subscript(int i) const
   {
-    // Only have to do the at() business for subscripts from the 3rd one on
-    const int nSubs = std::count(fName.begin(), fName.end(), '[');
-    if(nSubs < 2) return TString::Format("%s[%d]", fName.c_str(), i).Data();
+    // Only have to do the at() business for the nested case for subscripts
+    // from the 3rd one on
+    if(fType != kNested || NSubscripts(fName) < 2){
+      return fName+"["+std::to_string(i)+"]";
+    }
 
     const int idx = fName.find_last_of('.');
-    return TString::Format("%s.@%s.at(%d)",
-                           fName.substr(0, idx).c_str(),
-                           fName.substr(idx+1).c_str(),
-                           i).Data();
+
+    return fName.substr(0, idx)+".@"+fName.substr(idx+1)+".at("+std::to_string(i)+")";
   }
 
   //----------------------------------------------------------------------
   TTree* VectorProxyBase::GetTreeForName() const
   {
-    if(fType == kFlatSingleTree) return fTree; // all in the same tree
+    if(fType != kFlatMultiTree) return fTree; // all in the same tree
 
     TTree* tr = (TTree*)fDir->Get(fName.c_str());
     if(!tr){
