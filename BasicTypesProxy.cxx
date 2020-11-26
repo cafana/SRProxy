@@ -63,6 +63,20 @@ namespace caf
   }
 
   //----------------------------------------------------------------------
+  std::string StripSubscripts(const std::string& s)
+  {
+    std::string ret;
+    ret.reserve(s.size());
+    bool insub = false;
+    for(char c: s){
+      /**/ if(c == '[') insub = true;
+      else if(c == ']') insub = false;
+      else if(!insub) ret += c;
+    }
+    return ret;
+  }
+
+  //----------------------------------------------------------------------
   int NSubscripts(const std::string& name)
   {
     return std::count(name.begin(), name.end(), '[');
@@ -147,7 +161,7 @@ namespace caf
     assert(fTree);
 
     if(!fLeaf){
-      const std::string sname = StrippedName();
+      const std::string sname = StripSubscripts(fName);
       fLeaf = fTree->GetLeaf(sname.c_str());
       if(!fLeaf){
         std::cout << std::endl << "BasicTypeProxy: Branch '" << sname
@@ -181,7 +195,7 @@ namespace caf
     assert(fTree);
 
     if(!fLeaf){
-      const std::string sname = StrippedName();
+      const std::string sname = StripSubscripts(fName);
       fLeaf = fTree->GetLeaf(sname.c_str());
       if(!fLeaf){
         std::cout << std::endl << "BasicTypeProxy: Branch '" << sname
@@ -288,20 +302,6 @@ namespace caf
   }
 
   //----------------------------------------------------------------------
-  template<class T> std::string Proxy<T>::StrippedName() const
-  {
-    std::string ret;
-    ret.reserve(fName.size());
-    bool insub = false;
-    for(char c: fName){
-      /**/ if(c == '[') insub = true;
-      else if(c == ']') insub = false;
-      else if(!insub) ret += c;
-    }
-    return ret;
-  }
-
-  //----------------------------------------------------------------------
   template<class T> Proxy<T>& Proxy<T>::operator=(T x)
   {
     if(SRProxySystController::InTransaction()) SRProxySystController::Backup(*this);
@@ -364,13 +364,12 @@ namespace caf
   }
 
   //----------------------------------------------------------------------
-  VectorProxyBase::VectorProxyBase(TDirectory* d, TTree* tr,
-                                   const std::string& name,
-                                   const long& base, int offset)
+  ArrayVectorProxyBase::ArrayVectorProxyBase(TDirectory* d, TTree* tr,
+                                             const std::string& name,
+                                             const long& base, int offset)
     : fDir(d), fTree(tr), fName(name), fType(GetCAFType(d, tr)),
-      fBase(base), fOffset(offset), fSize(d, tr, LengthField(), base, offset),
-      fIdxP(0), fIdx(0),
-      fWarn(false)
+      fBase(base), fOffset(offset),
+      fIdxP(0), fIdx(0)
   {
     // Only used for flat trees. For single-tree, only needed for objects not
     // at top-level.
@@ -381,38 +380,22 @@ namespace caf
   }
 
   //----------------------------------------------------------------------
-  VectorProxyBase::~VectorProxyBase()
+  ArrayVectorProxyBase::~ArrayVectorProxyBase()
   {
     delete fIdxP;
   }
 
   //----------------------------------------------------------------------
-  void VectorProxyBase::CheckIndex(size_t i) const
+  void ArrayVectorProxyBase::CheckIndex(size_t i, size_t size) const
   {
     // This is the only way to get good error messages. But it also seems like
     // the call to size() here is necessary in Nested mode to trigger some
     // side-effect within ROOT, otherwise we get some bogus index out-of-range
     // crashes.
-    if(i >= size()){
-      std::cout << std::endl << fName << "[" << (signed)i << "] out of range (size() == " << size() << "). Aborting." << std::endl;
+    if(i >= size){
+      std::cout << std::endl << fName << "[" << (signed)i << "] out of range (size() == " << size << "). Aborting." << std::endl;
       abort();
     }
-  }
-
-  //----------------------------------------------------------------------
-  std::string StripIndices(const std::string& s)
-  {
-    const size_t idx1 = s.find_first_of('[');
-
-    if(idx1 == std::string::npos) return s;
-
-    const size_t idx2 = s.find_first_of(']');
-
-    // Huh?
-    if(idx2 == std::string::npos) return s;
-
-    // Recurse in case there are more
-    return StripIndices(s.substr(0, idx1) + s.substr(idx2+1));
   }
 
   //----------------------------------------------------------------------
@@ -459,7 +442,7 @@ namespace caf
   }
 
   //----------------------------------------------------------------------
-  std::string VectorProxyBase::IndexField() const
+  std::string ArrayVectorProxyBase::IndexField() const
   {
     if(fType == kFlatMultiTree) return fName+"_idx";
     if(fType == kFlatSingleTree) return fName+"..idx";
@@ -467,7 +450,7 @@ namespace caf
   }
 
   //----------------------------------------------------------------------
-  std::string VectorProxyBase::Subscript(int i) const
+  std::string ArrayVectorProxyBase::Subscript(int i) const
   {
     // Only have to do the at() business for the nested case for subscripts
     // from the 3rd one on
@@ -481,7 +464,7 @@ namespace caf
   }
 
   //----------------------------------------------------------------------
-  TTree* VectorProxyBase::GetTreeForName() const
+  TTree* ArrayVectorProxyBase::GetTreeForName() const
   {
     if(fType != kFlatMultiTree) return fTree; // all in the same tree
 
@@ -495,6 +478,16 @@ namespace caf
   }
 
   //----------------------------------------------------------------------
+  VectorProxyBase::VectorProxyBase(TDirectory* d, TTree* tr,
+                                   const std::string& name,
+                                   const long& base, int offset)
+    : ArrayVectorProxyBase(d, tr, name, base, offset),
+      fSize(d, tr, LengthField(), base, offset),
+      fWarn(false)
+  {
+  }
+
+  //----------------------------------------------------------------------
   size_t VectorProxyBase::size() const
   {
     if(fWarn){
@@ -503,12 +496,12 @@ namespace caf
       // Don't emit the same warning more than once
       static std::set<std::string> already;
 
-      const std::string key = StripIndices(NName());
+      const std::string key = StripSubscripts(NName());
       if(already.count(key) == 0){
         already.insert(key);
         std::cout << std::endl;
         std::cout << "Warning: field '" << key << "' does not exist in file. "
-                  << "Falling back to '" << StripIndices(fSize.Name()) << "' which is less efficient. "
+                  << "Falling back to '" << StripSubscripts(fSize.Name()) << "' which is less efficient. "
                   << "Consider updating StandardRecord to include '" << key << "'." << std::endl;
         std::cout << std::endl;
       }

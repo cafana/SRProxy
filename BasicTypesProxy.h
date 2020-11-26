@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cassert>
 #include <set>
 #include <string>
@@ -83,9 +84,6 @@ namespace caf
     T GetValueFlatSingle() const;
     T GetValueFlatMulti() const;
 
-    // Name without any subscripts
-    std::string StrippedName() const;
-
     void SetShifted();
 
     // The type to fetch from the TLeaf - get template errors inside of ROOT
@@ -113,34 +111,24 @@ namespace caf
   };
 
   // Helper functions that don't need to be templated
-  class VectorProxyBase
+  class ArrayVectorProxyBase
   {
   public:
-    VectorProxyBase(TDirectory* d, TTree* tr, const std::string& name,
-                    const long& base, int offset);
-
-    VectorProxyBase& operator=(const VectorProxyBase&) = delete;
-    VectorProxyBase(const VectorProxyBase& v) = delete;
-
-    ~VectorProxyBase();
-
     std::string Name() const {return fName;}
 
-    size_t size() const;
-    bool empty() const;
-    void resize(size_t i);
   protected:
-    void CheckIndex(size_t i) const;
+    ArrayVectorProxyBase(TDirectory* d, TTree* tr, const std::string& name,
+                         const long& base, int offset);
+
+    ~ArrayVectorProxyBase();
+
+    void CheckIndex(size_t i, size_t size) const;
     TTree* GetTreeForName() const;
 
-    std::string LengthField() const;
     std::string IndexField() const;
 
     /// add [i], or something more complex for nested CAFs
     std::string Subscript(int i) const;
-
-    /// Helper for LengthField()
-    std::string NName() const;
 
     TDirectory* fDir;
     TTree* fTree;
@@ -148,13 +136,29 @@ namespace caf
     CAFType fType;
     const long& fBase;
     int fOffset;
-    Proxy<int> fSize;
     Proxy<long long>* fIdxP;
     mutable long fIdx;
+  };
+
+  // Helper functions that don't need to be templated
+  class VectorProxyBase: public ArrayVectorProxyBase
+  {
+  public:
+    size_t size() const;
+    bool empty() const;
+    void resize(size_t i);
+
+  protected:
+    VectorProxyBase(TDirectory* d, TTree* tr, const std::string& name, const long& base, int offset);
+
+    std::string LengthField() const;
+    /// Helper for LengthField()
+    std::string NName() const;
+
+    Proxy<int> fSize;
 
     mutable bool fWarn;
   };
-
 
   template<class T> class Proxy<std::vector<T>>: public VectorProxyBase
   {
@@ -215,7 +219,7 @@ namespace caf
     /// Implies CheckIndex()
     void EnsureSize(size_t i) const
     {
-      CheckIndex(i);
+      CheckIndex(i, size());
       if(i >= fElems.size()) fElems.resize(i+1);
 
       if(fIdxP) fIdx = *fIdxP; // store into an actual value we can point to
@@ -242,35 +246,34 @@ namespace caf
     return false;
   }
 
-  template<class T, unsigned int N> class Proxy<T[N]>
+  template<class T, unsigned int N> class Proxy<T[N]> : public ArrayVectorProxyBase
   {
   public:
     Proxy(TDirectory* d, TTree* tr, const std::string& name, const long& base, int offset)
-      : fType(GetCAFType(d, tr)), fIdxP(0), fIdx(0)
+      : ArrayVectorProxyBase(d, tr, name, base, offset)
     {
-      // Only used for flat trees. For single-tree, only needed for objects not
-      // at top-level.
-      if(fType == kFlatMultiTree ||
-         (fType == kFlatSingleTree && NSubscripts(name) > 0)){
-        fIdxP = new Proxy<long long>(d, tr, IndexField(name), base, offset);
-      }
-
-      fElems.reserve(N);
-      for(unsigned int i = 0; i < N; ++i){
-        fElems.emplace_back(d, tr, name+"["+std::to_string(i)+"]", fIdx, i);
-      }
     }
 
     ~Proxy()
     {
-      delete fIdxP;
+      for(Proxy<T>* e: fElems) delete e;
     }
 
     Proxy& operator=(const Proxy<T[N]>&) = delete;
     Proxy(const Proxy<T[N]>& v) = delete;
 
-    const Proxy<T>& operator[](size_t i) const {if(fIdxP) fIdx = *fIdxP; return fElems[i];}
-          Proxy<T>& operator[](size_t i)       {if(fIdxP) fIdx = *fIdxP; return fElems[i];}
+    const Proxy<T>& operator[](size_t i) const
+    {
+      EnsureElem(i);
+      if(fIdxP) fIdx = *fIdxP;
+      return *fElems[i];
+    }
+    Proxy<T>& operator[](size_t i)
+    {
+      EnsureElem(i);
+      if(fIdxP) fIdx = *fIdxP;
+      return *fElems[i];
+    }
 
     Proxy<T[N]>& operator=(const T (&x)[N])
     {
@@ -284,20 +287,13 @@ namespace caf
     }
 
   protected:
-    std::string IndexField(const std::string& name) const
+    void EnsureElem(int i) const
     {
-      if(fType == kFlatMultiTree) return name+"_idx";
-      if(fType == kFlatSingleTree) return name+"..idx";
-      abort();
+      CheckIndex(i, N);
+      if(!fElems[i]) fElems[i] = new Proxy<T>(fDir, fTree, Subscript(i), fIdx, i);
     }
 
-    CAFType fType;
-
-    std::vector<Proxy<T>> fElems;
-
-    // Flat
-    Proxy<long long>* fIdxP;
-    mutable long fIdx;
+    mutable std::array<Proxy<T>*, N> fElems;
   };
 
   // Retain an alias to the old naming scheme for now
