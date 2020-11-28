@@ -83,9 +83,24 @@ namespace caf
   }
 
   //----------------------------------------------------------------------
+  const long kZero = 0;
+
+  // Sigh. For multi-tree flatcafs, 'base' is being updated by the caller to
+  // give the row in the tree. But for single-tree flatcafs, this field
+  // signifies a starting position within the array for the current row, and
+  // should always be zero (ignoring the caller) for top-level fields. Enforce
+  // that here.
+  const long& AdjustBase(const long& base, CAFType type, const std::string& name)
+  {
+    if(type == kFlatSingleTree && NSubscripts(name) == 0) return kZero;
+    return base;
+  }
+
+  //----------------------------------------------------------------------
   template<class T> Proxy<T>::Proxy(TDirectory* d, TTree* tr, const std::string& name, const long& base, int offset)
     : fName(name), fType(GetCAFType(d, tr)),
-      fLeaf(0), fTree(tr), fDir(d), fBase(base), fOffset(offset),
+      fLeaf(0), fTree(tr), fDir(d),
+      fBase(AdjustBase(base, fType, fName)), fOffset(offset),
       fLeafInfo(0), fBranch(0), fTTF(0), fEntry(-1), fSubIdx(0)
   {
   }
