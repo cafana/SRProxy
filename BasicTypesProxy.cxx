@@ -57,6 +57,7 @@ namespace caf
   //----------------------------------------------------------------------
   CAFType GetCAFType(const TDirectory* dir, TTree* tr)
   {
+    if(!dir && !tr) return kCopiedRecord;
     if(dir) return kFlatMultiTree;
     if(tr->GetNbranches() > 1) return kFlatSingleTree;
     return kNested;
@@ -105,30 +106,30 @@ namespace caf
   {
   }
 
+  const long kDummyBase = -1;
+
   //----------------------------------------------------------------------
   template<class T> Proxy<T>::Proxy(const Proxy<T>& p)
-    : fName("copy of "+p.fName), fType(p.fType),
-      fLeaf(0), fTree(p.fDir ? 0 : p.fTree),
-      fDir(p.fDir), fBase(p.fBase), fOffset(p.fOffset),
-      fLeafInfo(0), fBranch(0), fTTF(0), fSubIdx(-1)
+    : fName("copy of "+p.fName), fType(kCopiedRecord),
+      fLeaf(0), fTree(0), fDir(0),
+      fBase(kDummyBase), fOffset(-1),
+      fLeafInfo(0), fBranch(0), fTTF(0), fEntry(-1), fSubIdx(-1)
   {
     // Ensure that the value is evaluated and baked in in the parent object, so
     // that fTTF et al aren't re-evaluated in every single copy.
     fVal = p.GetValue();
-    fEntry = p.fEntry;
   }
 
   //----------------------------------------------------------------------
   template<class T> Proxy<T>::Proxy(const Proxy&& p)
-    : fName("move of "+p.fName), fType(p.fType),
-      fLeaf(0), fTree(p.fDir ? 0 : p.fTree),
-      fDir(p.fDir), fBase(p.fBase), fOffset(p.fOffset),
-      fLeafInfo(0), fBranch(0), fTTF(0), fSubIdx(-1)
+    : fName("move of "+p.fName), fType(kCopiedRecord),
+      fLeaf(0), fTree(0), fDir(0),
+      fBase(kDummyBase), fOffset(-1),
+      fLeafInfo(0), fBranch(0), fTTF(0), fEntry(-1), fSubIdx(-1)
   {
     // Ensure that the value is evaluated and baked in in the parent object, so
     // that fTTF et al aren't re-evaluated in every single copy.
     fVal = p.GetValue();
-    fEntry = p.fEntry;
   }
 
   //----------------------------------------------------------------------
@@ -145,6 +146,7 @@ namespace caf
     case kNested: return GetValueNested();
     case kFlatMultiTree: return GetValueFlatMulti();
     case kFlatSingleTree: return GetValueFlatSingle();
+    case kCopiedRecord: return (T)fVal;
     default: abort();
     }
   }
@@ -163,10 +165,6 @@ namespace caf
   //----------------------------------------------------------------------
   template<class T> T Proxy<T>::GetValueFlatSingle() const
   {
-    // Magic value indicating the value has been set even in the absence of a
-    // tree
-    if(!fTree && fEntry == -100) return (T)fVal;
-
     assert(fTree);
 
     // Valid cached or systematically-shifted value
@@ -249,10 +247,6 @@ namespace caf
   //----------------------------------------------------------------------
   template<class T> T Proxy<T>::GetValueNested() const
   {
-    // Magic value indicating the value has been set even in the absence of a
-    // tree
-    if(!fTree && fEntry == -100) return (T)fVal;
-
     assert(fTree);
 
     // Valid cached or systematically-shifted value
@@ -322,11 +316,12 @@ namespace caf
     if(SRProxySystController::InTransaction()) SRProxySystController::Backup(*this);
     fVal = x;
 
-    if(fType == kFlatMultiTree){
-      fEntry = fBase+fOffset; // flat
-    }
-    else{
-      fEntry = fTree ? fTree->GetReadEntry() : -100; // nested or single-tree
+    switch(fType){
+    case kNested:         fEntry = fTree->GetReadEntry(); break;
+    case kFlatMultiTree:  fEntry = fBase+fOffset;         break;
+    case kFlatSingleTree: fEntry = fTree->GetReadEntry(); break;
+    case kCopiedRecord: break;
+    default: abort();
     }
 
     return *this;

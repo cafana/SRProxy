@@ -32,7 +32,8 @@ namespace caf
   {
     kNested,
     kFlatMultiTree,
-    kFlatSingleTree
+    kFlatSingleTree,
+    kCopiedRecord // Assigned into, not associated with a file
   };
 
   CAFType GetCAFType(const TDirectory* dir, TTree* tr);
