@@ -59,8 +59,8 @@ ACTION=SETUP
   EnvSet(${prodname_upper}_INC, \${UPS_PROD_DIR}/include )
   pathPrepend(PATH, \${UPS_PROD_DIR}/bin )
 
-  setupRequired(castxml v0_00_00_f20180122)
-  setupRequired(pygccxml v1_9_1c -q p383b)
+  setupRequired(castxml v0_4_2)
+  setupRequired(pygccxml v2_1_0 -q p383b)
 EOF
 
 echo ${dest}.version
