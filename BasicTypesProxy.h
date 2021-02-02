@@ -253,6 +253,7 @@ namespace caf
     Proxy(TDirectory* d, TTree* tr, const std::string& name, const long& base, int offset)
       : ArrayVectorProxyBase(d, tr, name, base, offset)
     {
+      fElems.fill(0); // ensure initialized to null
     }
 
     ~Proxy()
