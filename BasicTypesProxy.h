@@ -67,7 +67,7 @@ namespace caf
 
     ~Proxy();
 
-    operator T() const {return GetValue();}
+    operator T() const {return GetValueChecked();}
 
     T GetValue() const;
 
@@ -81,6 +81,9 @@ namespace caf
     void CheckEquals(const T& x) const;
 
   protected:
+    // Print a warning on inf or NaN
+    T GetValueChecked() const;
+
     T GetValueNested() const;
     T GetValueFlatSingle() const;
     T GetValueFlatMulti() const;
@@ -421,5 +424,17 @@ namespace std
   template<class T> T max(T a, const caf::Proxy<T>& b)
   {
     return std::max(a, b.GetValue());
+  }
+
+  // We override these two so that the callers don't trigger the warning
+  // printout from operator T.
+  template<class T> bool isnan(const caf::Proxy<T>& x)
+  {
+    return std::isnan(x.GetValue());
+  }
+
+  template<class T> bool isinf(const caf::Proxy<T>& x)
+  {
+    return std::isinf(x.GetValue());
   }
 }

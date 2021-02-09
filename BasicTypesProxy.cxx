@@ -1,5 +1,6 @@
 #include "SRProxy/BasicTypesProxy.h"
 
+#include "TFile.h"
 #include "TFormLeafInfo.h"
 #include "TTreeFormula.h"
 
@@ -151,11 +152,31 @@ namespace caf
     }
   }
 
+  //----------------------------------------------------------------------
+  template<class T> T Proxy<T>::GetValueChecked() const
+  {
+    const T val = GetValue();
+
+    if constexpr(std::is_floating_point_v<T>){
+      if(isnan(val) || isinf(val)){
+        std::cout << "SRProxy: Warning: " << fName << " = " << val;
+        if(fTree && fTree->GetDirectory() && fTree->GetDirectory()->GetFile()){
+          std::cout << " in entry " << fEntry << " of " << fTree->GetDirectory()->GetFile()->GetName();
+        }
+        std::cout << std::endl;
+      }
+    }
+
+    return val;
+  }
+
+  //----------------------------------------------------------------------
   template<class T> void GetTypedValueWrapper(TLeaf* leaf, T& x, int subidx)
   {
     x = leaf->GetTypedValue<T>(subidx);
   }
 
+  //----------------------------------------------------------------------
   void GetTypedValueWrapper(TLeaf* leaf, std::string& x, int subidx)
   {
     assert(subidx == 0); // Unused for flat trees at least
