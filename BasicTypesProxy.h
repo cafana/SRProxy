@@ -438,3 +438,14 @@ namespace std
     return std::isinf(x.GetValue());
   }
 }
+
+// There are also versions of these not in std:: that we want to override
+template<class T> bool isnan(const caf::Proxy<T>& x)
+{
+  return std::isnan(x.GetValue());
+}
+
+template<class T> bool isinf(const caf::Proxy<T>& x)
+{
+  return std::isinf(x.GetValue());
+}
