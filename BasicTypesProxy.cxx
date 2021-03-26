@@ -321,7 +321,7 @@ namespace caf
       // calling a TTF, but I can't figure out a safe way to automatically
       // elide that check.
       if(fSubIdx > fLeaf->GetLen()){
-        std::cout << std::endl << fName << " out of range (size() == " << fLeaf->GetLen() << "). Aborting." << std::endl;
+        std::cout << std::endl << fName << " out of range (" << fName << ".size() == " << fLeaf->GetLen() << "). Aborting." << std::endl;
         abort();
       }
 
@@ -424,7 +424,7 @@ namespace caf
     // side-effect within ROOT, otherwise we get some bogus index out-of-range
     // crashes.
     if(i >= size){
-      std::cout << std::endl << fName << "[" << (signed)i << "] out of range (size() == " << size << "). Aborting." << std::endl;
+      std::cout << std::endl << fName << "[" << (signed)i << "] out of range (" << fName << ".size() == " << size << "). Aborting." << std::endl;
       abort();
     }
   }
