@@ -56,6 +56,7 @@ namespace caf
     friend class Restorer;
 
     Proxy(TDirectory* d, TTree* tr, const std::string& name, const long& base, int offset);
+    Proxy(TTree* tr, const std::string& name) : Proxy(0, tr, name, 0, 0) {}
 
     // Need to be copyable because Vars return us directly
     Proxy(const Proxy&);
@@ -180,6 +181,8 @@ namespace caf
     {
     }
 
+    Proxy(TTree* tr, const std::string& name) : Proxy(0, tr, name, 0, 0) {}
+
     ~Proxy(){for(Proxy<T>* e: fElems) delete e;}
 
     Proxy& operator=(const Proxy<std::vector<T>>&) = delete;
@@ -266,6 +269,8 @@ namespace caf
     {
       fElems.fill(0); // ensure initialized to null
     }
+
+    Proxy(TTree* tr, const std::string& name) : Proxy(0, tr, name, 0, 0) {}
 
     ~Proxy()
     {
