@@ -41,6 +41,9 @@ namespace caf
   /// Count the subscripts in the name
   int NSubscripts(const std::string& name);
 
+  template<class T> struct is_vec                {static const bool value = false;};
+  template<class T> struct is_vec<std::vector<T>>{static const bool value = true; };
+
   template<class T> class Proxy;
 
   class Restorer;
@@ -121,7 +124,9 @@ namespace caf
     std::string Name() const {return fName;}
 
   protected:
-    ArrayVectorProxyBase(TDirectory* d, TTree* tr, const std::string& name,
+    ArrayVectorProxyBase(TDirectory* d, TTree* tr,
+                         const std::string& name,
+                         bool isNestedContainer,
                          const long& base, int offset);
 
     ~ArrayVectorProxyBase();
@@ -134,9 +139,12 @@ namespace caf
     /// add [i], or something more complex for nested CAFs
     std::string Subscript(int i) const;
 
+    std::string SubName() const;
+
     TDirectory* fDir;
     TTree* fTree;
     std::string fName;
+    bool fIsNestedContainer;
     CAFType fType;
     const long& fBase;
     int fOffset;
@@ -153,7 +161,7 @@ namespace caf
     void resize(size_t i);
 
   protected:
-    VectorProxyBase(TDirectory* d, TTree* tr, const std::string& name, const long& base, int offset);
+    VectorProxyBase(TDirectory* d, TTree* tr, const std::string& name, bool isNestedContainer, const long& base, int offset);
 
     std::string LengthField() const;
     /// Helper for LengthField()
@@ -168,7 +176,7 @@ namespace caf
   {
   public:
     Proxy(TDirectory* d, TTree* tr, const std::string& name, const long& base, int offset)
-      : VectorProxyBase(d, tr, name, base, offset)
+      : VectorProxyBase(d, tr, name, is_vec<T>::value || std::is_array_v<T>, base, offset)
     {
     }
 
@@ -254,7 +262,7 @@ namespace caf
   {
   public:
     Proxy(TDirectory* d, TTree* tr, const std::string& name, const long& base, int offset)
-      : ArrayVectorProxyBase(d, tr, name, base, offset)
+      : ArrayVectorProxyBase(d, tr, name, is_vec<T>::value || std::is_array_v<T>, base, offset)
     {
       fElems.fill(0); // ensure initialized to null
     }

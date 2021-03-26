@@ -397,8 +397,11 @@ namespace caf
   //----------------------------------------------------------------------
   ArrayVectorProxyBase::ArrayVectorProxyBase(TDirectory* d, TTree* tr,
                                              const std::string& name,
+                                             bool isNestedContainer,
                                              const long& base, int offset)
-    : fDir(d), fTree(tr), fName(name), fType(GetCAFType(d, tr)),
+    : fDir(d), fTree(tr),
+      fName(name), fIsNestedContainer(isNestedContainer),
+      fType(GetCAFType(d, tr)),
       fBase(base), fOffset(offset),
       fIdxP(0), fIdx(0)
   {
@@ -486,12 +489,23 @@ namespace caf
     // Only have to do the at() business for the nested case for subscripts
     // from the 3rd one on
     if(fType != kNested || NSubscripts(fName) < 2){
-      return fName+"["+std::to_string(i)+"]";
+      return SubName()+"["+std::to_string(i)+"]";
     }
 
-    const int idx = fName.find_last_of('.');
+    const int idx = fName.find_last_of('.'); // for nested name == subname
 
     return fName.substr(0, idx)+".@"+fName.substr(idx+1)+".at("+std::to_string(i)+")";
+  }
+
+  //----------------------------------------------------------------------
+  std::string ArrayVectorProxyBase::SubName() const
+  {
+    // Nested containers would have the same name for length and idx at each
+    // level, which is bad, so their names are uniquified.
+    if(fType == kFlatSingleTree && fIsNestedContainer)
+      return fName+".elems";
+    else
+      return fName;
   }
 
   //----------------------------------------------------------------------
@@ -512,8 +526,9 @@ namespace caf
   //----------------------------------------------------------------------
   VectorProxyBase::VectorProxyBase(TDirectory* d, TTree* tr,
                                    const std::string& name,
+                                   bool isNestedContainer,
                                    const long& base, int offset)
-    : ArrayVectorProxyBase(d, tr, name, base, offset),
+    : ArrayVectorProxyBase(d, tr, name, isNestedContainer, base, offset),
       fSize(d, tr, LengthField(), base, offset),
       fWarn(false)
   {

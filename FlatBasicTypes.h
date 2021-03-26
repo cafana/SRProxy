@@ -23,6 +23,9 @@ namespace flat
   template<> struct rootcode<unsigned long>{const static char code = 'l';};
   template<> struct rootcode<         bool>{const static char code = 'O';};
 
+  template<class T> struct is_vec                {static const bool value = false;};
+  template<class T> struct is_vec<std::vector<T>>{static const bool value = true; };
+
   // Serialize most types as-is, but represent enums with short
   template<class T> struct FlatType{typedef std::conditional_t<std::is_enum_v<T>, short, T> type;};
   /// Prevent bit-packed vector<bool>
@@ -85,7 +88,7 @@ namespace flat
       fLength(tr, name+"..length", totsize, policy),
       fIdx(0),
       fTotArraySize(0),
-      fData(tr, name, SubLengthName(tr, name, totsize), policy)
+      fData(tr, SubName(name), SubLengthName(tr, name, totsize), policy)
     {
       // Would always be zero if this vector was not nested inside any others
       if(!totsize.empty()){
@@ -115,6 +118,14 @@ namespace flat
     }
 
   protected:
+    std::string SubName(const std::string& name) const
+    {
+      // Nested containers would have the same name for length and idx at each
+      // level, which is bad, so uniquify them.
+      if(is_vec<T>::value || std::is_array_v<T>) return name+".elems";
+      return name;
+    }
+
     std::string SubLengthName(TTree* tr, const std::string& name, const std::string& totsize)
     {
       if(totsize.empty()) return name+"..length";
@@ -140,7 +151,7 @@ namespace flat
     Flat(TTree* tr, const std::string& name, const std::string& totsize, const IBranchPolicy* policy) :
       fIdx(0),
       fTotArraySize(0),
-      fData(tr, name, SubLengthName(tr, name, totsize), policy)
+      fData(tr, SubName(name), SubLengthName(tr, name, totsize), policy)
     {
       // Would always be zero if this vector was not nested inside any others
       if(!totsize.empty()){
@@ -165,6 +176,15 @@ namespace flat
       for(int i = 0; i < N; ++i) fData.Fill(xs[i]);
       if(fIdx) fIdx->Fill(fTotArraySize);
       fTotArraySize += N;
+    }
+
+  protected:
+    std::string SubName(const std::string& name) const
+    {
+      // Nested contains would have the same name for length and idx at each
+      // level, which is bad, so uniquify them.
+      if(is_vec<T>::value || std::is_array_v<T>) return name+".elems";
+      return name;
     }
 
     std::string SubLengthName(TTree* tr, const std::string& name, const std::string& totsize)
