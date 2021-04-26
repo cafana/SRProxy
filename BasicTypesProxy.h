@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cassert>
+#include <cmath> // for std::isinf and std::isnan
 #include <set>
 #include <string>
 #include <vector>
