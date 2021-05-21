@@ -452,7 +452,6 @@ namespace caf
     if(fName == "rec.me.trkcosmic"  ) return "rec.me.ncosmic";
     if(fName == "rec.me.trkbpf"     ) return "rec.me.nbpf";
 
-    const int idx = fName.find_last_of('.');
     // foo.bar.baz -> foo.bar.nbaz
     const std::string nname = NName();
 
@@ -468,10 +467,23 @@ namespace caf
 
     if(def >= 0) return nname;
 
-    // Otherwise fallback and make a note to warn the first time we're accessed
-    fWarn = true;
+    // Otherwise fallback and warn (this is on the first time we're accessed)
+
+    // Don't emit the same warning more than once
+    static std::set<std::string> already;
+
+    const std::string key = StripSubscripts(NName());
+    if(already.count(key) == 0){
+      already.insert(key);
+      std::cout << std::endl;
+      std::cout << "Warning: field '" << key << "' does not exist in file. "
+                << "Falling back to '" << StripSubscripts(fSize->Name()) << "' which is less efficient. "
+                << "Consider updating StandardRecord to include '" << key << "'." << std::endl;
+      std::cout << std::endl;
+    }
 
     // foo.bar.baz -> foo.bar.@baz.size()
+    const int idx = fName.find_last_of('.');
     return fName.substr(0, idx+1)+"@"+fName.substr(idx+1)+".size()";
   }
 
@@ -529,32 +541,29 @@ namespace caf
                                    bool isNestedContainer,
                                    const long& base, int offset)
     : ArrayVectorProxyBase(d, tr, name, isNestedContainer, base, offset),
-      fSize(d, tr, LengthField(), base, offset),
-      fWarn(false)
+      fSize(0)
   {
+  }
+
+  //----------------------------------------------------------------------
+  VectorProxyBase::~VectorProxyBase()
+  {
+    delete fSize;
+  }
+
+  //----------------------------------------------------------------------
+  void VectorProxyBase::EnsureSizeExists() const
+  {
+    if(fSize) return;
+
+    fSize = new Proxy<int>(fDir, fTree, LengthField(), fBase, fOffset);
   }
 
   //----------------------------------------------------------------------
   size_t VectorProxyBase::size() const
   {
-    if(fWarn){
-      fWarn = false;
-
-      // Don't emit the same warning more than once
-      static std::set<std::string> already;
-
-      const std::string key = StripSubscripts(NName());
-      if(already.count(key) == 0){
-        already.insert(key);
-        std::cout << std::endl;
-        std::cout << "Warning: field '" << key << "' does not exist in file. "
-                  << "Falling back to '" << StripSubscripts(fSize.Name()) << "' which is less efficient. "
-                  << "Consider updating StandardRecord to include '" << key << "'." << std::endl;
-        std::cout << std::endl;
-      }
-    }
-
-    return fSize;
+    EnsureSizeExists();
+    return *fSize;
   }
 
   //----------------------------------------------------------------------
@@ -566,7 +575,8 @@ namespace caf
   //----------------------------------------------------------------------
   void VectorProxyBase::resize(size_t i)
   {
-    fSize = i;
+    EnsureSizeExists();
+    *fSize = i;
   }
 
   // Enumerate all the variants we expect

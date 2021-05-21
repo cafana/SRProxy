@@ -131,7 +131,7 @@ namespace caf
                          bool isNestedContainer,
                          const long& base, int offset);
 
-    ~ArrayVectorProxyBase();
+    virtual ~ArrayVectorProxyBase();
 
     void CheckIndex(size_t i, size_t size) const;
     TTree* GetTreeForName() const;
@@ -158,6 +158,8 @@ namespace caf
   class VectorProxyBase: public ArrayVectorProxyBase
   {
   public:
+    virtual ~VectorProxyBase();
+
     size_t size() const;
     bool empty() const;
     void resize(size_t i);
@@ -169,9 +171,8 @@ namespace caf
     /// Helper for LengthField()
     std::string NName() const;
 
-    Proxy<int> fSize;
-
-    mutable bool fWarn;
+    void EnsureSizeExists() const;
+    mutable Proxy<int>* fSize; ///< only initialized on-demand
   };
 
   template<class T> class Proxy<std::vector<T>>: public VectorProxyBase
@@ -189,8 +190,8 @@ namespace caf
     Proxy& operator=(const Proxy<std::vector<T>>&) = delete;
     Proxy(const Proxy<std::vector<T>>& v) = delete;
 
-    Proxy<T>& at(size_t i) const {EnsureSize(i); return *fElems[i];}
-    Proxy<T>& at(size_t i)       {EnsureSize(i); return *fElems[i];}
+    Proxy<T>& at(size_t i) const {EnsureLongEnough(i); return *fElems[i];}
+    Proxy<T>& at(size_t i)       {EnsureLongEnough(i); return *fElems[i];}
 
     Proxy<T>& operator[](size_t i) const {return at(i);}
     Proxy<T>& operator[](size_t i)       {return at(i);}
@@ -205,7 +206,8 @@ namespace caf
     template<class U>
     void CheckEquals(const std::vector<U>& x) const
     {
-      fSize.CheckEquals(x.size());
+      EnsureSizeExists();
+      fSize->CheckEquals(x.size());
       for(unsigned int i = 0; i < std::min(size(), x.size()); ++i) at(i).CheckEquals(x[i]);
     }
 
@@ -233,7 +235,7 @@ namespace caf
 
   protected:
     /// Implies CheckIndex()
-    void EnsureSize(size_t i) const
+    void EnsureLongEnough(size_t i) const
     {
       CheckIndex(i, size());
       if(i >= fElems.size()) fElems.resize(i+1);
