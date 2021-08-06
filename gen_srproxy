@@ -79,6 +79,17 @@ def vector_contents(type):
 
     return pygccxml.declarations.container_traits.vector_traits.element_type(type)
 
+def array_contents(type):
+    assert pygccxml.declarations.is_array(type)
+
+    # This is the answer, except for some reason it's a stupid declarated_t
+    ret = pygccxml.declarations.type_traits.array_item_type(type)
+
+    # So we have to do this clumsy dance to concert it back to a real class
+    if pygccxml.declarations.type_traits.is_fundamental(ret): return ret
+
+    return global_ns.class_(ret.decl_string, recursive = True)
+
 def proxy_type(type):
     if gFlat:
         return 'flat::Flat<'+short_type(type)+'>'
@@ -326,6 +337,10 @@ def recurse(klass):
         recurse(vector_contents(klass))
         return
 
+    if pygccxml.declarations.is_array(klass):
+        recurse(array_contents(klass))
+        return
+
     base = base_class(klass)
     if base: recurse(base)
 
@@ -333,10 +348,9 @@ def recurse(klass):
         if is_vector(v.decl_type):
             recurse(vector_contents(v.decl_type))
         elif pygccxml.declarations.is_array(v.decl_type):
-            recurse(v.decl_type.base)
-        else:
-            if pygccxml.declarations.is_class(v.decl_type):
-                recurse(v.decl_type.declaration)
+            recurse(array_contents(v.decl_type))
+        elif pygccxml.declarations.is_class(v.decl_type):
+            recurse(v.decl_type.declaration)
 
     emit(klass)
 
@@ -434,6 +448,10 @@ def main():
     decls = pygccxml.parser.parse([input_header], config)
 
     top = pygccxml.declarations.get_global_namespace(decls)
+
+    # Hack to support array_contents() function
+    global global_ns
+    global_ns = top
 
     while len(target) > 1:
         top = top.namespace(target[0])
