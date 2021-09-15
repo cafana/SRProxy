@@ -144,11 +144,11 @@ namespace flat
     Flat<T> fData;
   };
 
-
-  template<class T, int N> class Flat<T[N]>
+  /// Implementation for flat arrays mirroring layout of flat vectors
+  template<class T, int N> class FlatOutOfLineArray
   {
   public:
-    Flat(TTree* tr, const std::string& name, const std::string& totsize, const IBranchPolicy* policy) :
+    FlatOutOfLineArray(TTree* tr, const std::string& name, const std::string& totsize, const IBranchPolicy* policy) :
       fIdx(0),
       fTotArraySize(0),
       fData(tr, SubName(name), SubLengthName(tr, name, totsize), policy)
@@ -159,7 +159,7 @@ namespace flat
       }
     }
 
-    ~Flat()
+    ~FlatOutOfLineArray()
     {
       delete fIdx;
     }
@@ -202,6 +202,56 @@ namespace flat
     int fTotArraySize;
 
     Flat<T> fData;
+  };
+
+  /// \brief Implementation for "inline" flat arrays
+  ///
+  /// This means that foo[0].bar corresponds to a branch literally called
+  /// foo.0.bar
+  template<class T, int N> class FlatInlineArray
+  {
+  public:
+    FlatInlineArray(TTree* tr, const std::string& name, const std::string& totsize, const IBranchPolicy* policy)
+    {
+      for(int i = 0; i < N; ++i){
+        fData[i] = new Flat<T>(tr, name+"."+std::to_string(i), totsize, policy);
+      }
+    }
+
+    ~FlatInlineArray()
+    {
+      for(Flat<T>* d: fData) delete d;
+    }
+
+    void Clear()
+    {
+      for(Flat<T>* d: fData) d->Clear();
+    }
+
+    void Fill(const T* xs)
+    {
+      for(unsigned int i = 0; i < N; ++i) fData[i]->Fill(xs[i]);
+    }
+
+  protected:
+    Flat<T>* fData[N];
+  };
+
+  /// Critical size at which we switch from "inline" to vector-style arrays
+  ///
+  /// Inline arrays are easier to access in some contexts, and don't require
+  /// cross-referencing indices, but can become unweildy with particularly
+  /// large arrays. Arrays up to an including this size will be represented
+  /// inline, while larger arrays will mimic the layout of vectors.
+  static const int kMaxInlineSize = 16;
+
+  /// Figure out the class arrays of a particular size should be implemented by
+  template<class T, int N> using FlatArray = std::conditional_t<(N <= kMaxInlineSize), FlatInlineArray<T, N>, FlatOutOfLineArray<T, N>>;
+
+  /// Implementation of flat arrays forwarding to inline or out-of-line variant
+  template<class T, int N> class Flat<T[N]> : public FlatArray<T, N>
+  {
+    using FlatArray<T, N>::FlatArray; // inherit constructor
   };
 
 
