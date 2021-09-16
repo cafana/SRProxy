@@ -133,6 +133,8 @@ namespace caf
 
     virtual ~ArrayVectorProxyBase();
 
+    void EnsureIdxP() const;
+
     void CheckIndex(size_t i, size_t size) const;
     TTree* GetTreeForName() const;
 
@@ -143,6 +145,9 @@ namespace caf
 
     std::string SubName() const;
 
+    // Trivial, but requires including TTree.h, which we don't want in header
+    bool TreeHasLeaf(TTree* tr, const std::string& name) const;
+
     TDirectory* fDir;
     TTree* fTree;
     std::string fName;
@@ -150,7 +155,7 @@ namespace caf
     CAFType fType;
     const long& fBase;
     int fOffset;
-    Proxy<long long>* fIdxP;
+    mutable Proxy<long long>* fIdxP;
     mutable long fIdx;
   };
 
@@ -240,6 +245,7 @@ namespace caf
       CheckIndex(i, size());
       if(i >= fElems.size()) fElems.resize(i+1);
 
+      EnsureIdxP();
       if(fIdxP) fIdx = *fIdxP; // store into an actual value we can point to
 
       if(!fElems[i]) fElems[i] = new Proxy<T>(fDir, GetTreeForName(), Subscript(i), fIdx, i);
@@ -311,7 +317,19 @@ namespace caf
     void EnsureElem(int i) const
     {
       CheckIndex(i, N);
-      if(!fElems[i]) fElems[i] = new Proxy<T>(fDir, fTree, Subscript(i), fIdx, i);
+      if(fElems[i]) return; // element already created
+
+      if(fType != kFlatSingleTree || TreeHasLeaf(fTree, IndexField())){
+        // Regular out-of-line array, handled the same as a vector.
+        EnsureIdxP();
+        fElems[i] = new Proxy<T>(fDir, fTree, Subscript(i), fIdx, i);
+      }
+      else{
+        // No ..idx field implies this is an "inline" array where the elements
+        // are in individual branches like foo.0.bar
+        const std::string dotname = fName+"."+std::to_string(i);
+        fElems[i] = new Proxy<T>(0, fTree, dotname, fIdx, 0);
+      }
     }
 
     mutable std::array<Proxy<T>*, N> fElems;

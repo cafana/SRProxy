@@ -405,18 +405,25 @@ namespace caf
       fBase(base), fOffset(offset),
       fIdxP(0), fIdx(0)
   {
-    // Only used for flat trees. For single-tree, only needed for objects not
-    // at top-level.
-    if(fType == kFlatMultiTree ||
-       (fType == kFlatSingleTree && NSubscripts(fName) > 0)){
-      fIdxP = new Proxy<long long>(d, tr, IndexField(), base, offset);
-    }
   }
 
   //----------------------------------------------------------------------
   ArrayVectorProxyBase::~ArrayVectorProxyBase()
   {
     delete fIdxP;
+  }
+
+  //----------------------------------------------------------------------
+  void ArrayVectorProxyBase::EnsureIdxP() const
+  {
+    if(fIdxP) return;
+
+    // Only used for flat trees. For single-tree, only needed for objects not
+    // at top-level.
+    if(fType == kFlatMultiTree ||
+       (fType == kFlatSingleTree && NSubscripts(fName) > 0)){
+      fIdxP = new Proxy<long long>(fDir, fTree, IndexField(), fBase, fOffset);
+    }
   }
 
   //----------------------------------------------------------------------
@@ -518,6 +525,13 @@ namespace caf
       return fName+".elems";
     else
       return fName;
+  }
+
+  //----------------------------------------------------------------------
+  bool ArrayVectorProxyBase::TreeHasLeaf(TTree* tr,
+                                         const std::string& name) const
+  {
+    return tr->GetLeaf(name.c_str());
   }
 
   //----------------------------------------------------------------------
