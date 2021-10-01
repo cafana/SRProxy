@@ -443,8 +443,13 @@ namespace caf
   std::string VectorProxyBase::NName() const
   {
     const int idx = fName.find_last_of('.');
-    // foo.bar.baz -> foo.bar.nbaz
-    return fName.substr(0, idx)+".n"+fName.substr(idx+1);
+    if (idx != std::string::npos)
+      // foo.bar.baz -> foo.bar.nbaz
+      return fName.substr(0, idx)+".n"+fName.substr(idx+1);
+    else
+      // maybe the CAF is structured so this branch is at top level.
+      // then it should just be "n" + the branch name
+      return "n" + fName;
   }
 
   //----------------------------------------------------------------------
