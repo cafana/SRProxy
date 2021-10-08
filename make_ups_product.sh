@@ -60,7 +60,7 @@ ACTION=SETUP
   pathPrepend(PATH, \${UPS_PROD_DIR}/bin )
 
   setupRequired(castxml v0_4_2)
-  setupRequired(pygccxml v2_1_0 -q p383b)
+  setupRequired(pygccxml v2_1_0a -q p392)
 EOF
 
 echo ${dest}.version
