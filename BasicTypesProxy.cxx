@@ -442,7 +442,7 @@ namespace caf
   //----------------------------------------------------------------------
   std::string VectorProxyBase::NName() const
   {
-    const int idx = fName.find_last_of('.');
+    const size_t idx = fName.find_last_of('.');
     if (idx != std::string::npos)
       // foo.bar.baz -> foo.bar.nbaz
       return fName.substr(0, idx)+".n"+fName.substr(idx+1);
@@ -495,7 +495,7 @@ namespace caf
     }
 
     // foo.bar.baz -> foo.bar.@baz.size()
-    const int idx = fName.find_last_of('.');
+    const size_t idx = fName.find_last_of('.');
     return fName.substr(0, idx+1)+"@"+fName.substr(idx+1)+".size()";
   }
 
@@ -516,7 +516,7 @@ namespace caf
       return SubName()+"["+std::to_string(i)+"]";
     }
 
-    const int idx = fName.find_last_of('.'); // for nested name == subname
+    const size_t idx = fName.find_last_of('.'); // for nested name == subname
 
     return fName.substr(0, idx)+".@"+fName.substr(idx+1)+".at("+std::to_string(i)+")";
   }
