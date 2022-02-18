@@ -192,19 +192,19 @@ namespace caf
     if(fEntry == fTree->GetReadEntry()) return (T)fVal;
     fEntry = fTree->GetReadEntry();
 
-    assert(fTree);
-
     if(!fLeaf){
       const std::string sname = StripSubscripts(fName);
-      fLeaf = fTree->GetLeaf(sname.c_str());
+      // In a flat tree the branch and leaf have the same name, and this is
+      // quicker than the naive TTree::GetLeaf()
+      fBranch = fTree->GetBranch(sname.c_str());
+      fLeaf = fBranch ? fBranch->GetLeaf(sname.c_str()) : 0;
+
       if(!fLeaf){
         std::cout << std::endl << "BasicTypeProxy: Branch '" << sname
                   << "' not found in tree '" << fTree->GetName() << "'."
                   << std::endl;
         abort();
       }
-
-      fBranch = fLeaf->GetBranch();
 
       if(fName.find("..idx") == std::string::npos &&
          fName.find("..length") == std::string::npos){
@@ -230,7 +230,11 @@ namespace caf
 
     if(!fLeaf){
       const std::string sname = StripSubscripts(fName);
-      fLeaf = fTree->GetLeaf(sname.c_str());
+      // In a flat tree the branch and leaf have the same name, and this is
+      // quicker than the naive TTree::GetLeaf()
+      fBranch = fTree->GetBranch(sname.c_str());
+      fLeaf = fBranch ? fBranch->GetLeaf(sname.c_str()) : 0;
+
       if(!fLeaf){
         std::cout << std::endl << "BasicTypeProxy: Branch '" << sname
                   << "' not found in tree '" << fTree->GetName() << "'."
@@ -238,11 +242,8 @@ namespace caf
         abort();
       }
 
-      fBranch = fLeaf->GetBranch();
-
       if(fName.find("_idx") == std::string::npos &&
-         fName.find("_length") == std::string::npos &&
-         fName.find(".size()") == std::string::npos){ // specific to "nested"
+         fName.find("_length") == std::string::npos){ // specific to "nested"
         SRBranchRegistry::AddBranch(sname);
       }
     }
