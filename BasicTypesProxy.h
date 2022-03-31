@@ -328,7 +328,7 @@ namespace caf
         // No ..idx field implies this is an "inline" array where the elements
         // are in individual branches like foo.0.bar
         const std::string dotname = fName+"."+std::to_string(i);
-        fElems[i] = new Proxy<T>(0, fTree, dotname, fIdx, 0);
+        fElems[i] = new Proxy<T>(0, fTree, dotname, fBase, fOffset);
       }
     }
 
