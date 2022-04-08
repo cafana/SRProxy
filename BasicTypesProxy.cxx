@@ -1,5 +1,6 @@
 #include "SRProxy/BasicTypesProxy.h"
 
+#include "TError.h"
 #include "TFile.h"
 #include "TFormLeafInfo.h"
 #include "TTreeFormula.h"
