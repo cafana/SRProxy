@@ -294,10 +294,10 @@ namespace caf
       }
 
       // TODO - parsing the array indices out sucks - pass in as an int somehow
-      const size_t open_idx = fName.find_first_of('[');
+      const size_t open_idx = fName.find('[');
       // Do we have exactly one set of [] in the name?
-      if(open_idx != std::string::npos && open_idx == fName.find_last_of('[')){
-	const size_t close_idx = fName.find_first_of(']');
+      if(open_idx != std::string::npos && open_idx == fName.rfind('[')){
+	const size_t close_idx = fName.find(']');
 
 	std::string numPart = fName.substr(open_idx+1, close_idx-open_idx-1);
 	fSubIdx = atoi(numPart.c_str());
@@ -444,7 +444,7 @@ namespace caf
   //----------------------------------------------------------------------
   std::string VectorProxyBase::NName() const
   {
-    const size_t idx = fName.find_last_of('.');
+    const size_t idx = fName.rfind('.');
     if (idx != std::string::npos)
       // foo.bar.baz -> foo.bar.nbaz
       return fName.substr(0, idx)+".n"+fName.substr(idx+1);
@@ -484,7 +484,7 @@ namespace caf
     // Otherwise fallback and warn (this is on the first time we're accessed)
 
     // foo.bar.baz -> foo.bar.@baz.size()
-    const size_t idx = fName.find_last_of('.');
+    const size_t idx = fName.rfind('.');
     const std::string ret = fName.substr(0, idx+1)+"@"+fName.substr(idx+1)+".size()";
 
     // Don't emit the same warning more than once
@@ -520,7 +520,7 @@ namespace caf
       return SubName()+"["+std::to_string(i)+"]";
     }
 
-    const size_t idx = fName.find_last_of('.'); // for nested name == subname
+    const size_t idx = fName.rfind('.'); // for nested name == subname
 
     return fName.substr(0, idx)+".@"+fName.substr(idx+1)+".at("+std::to_string(i)+")";
   }
