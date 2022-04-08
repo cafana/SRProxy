@@ -482,6 +482,10 @@ namespace caf
 
     // Otherwise fallback and warn (this is on the first time we're accessed)
 
+    // foo.bar.baz -> foo.bar.@baz.size()
+    const size_t idx = fName.find_last_of('.');
+    const std::string ret = fName.substr(0, idx+1)+"@"+fName.substr(idx+1)+".size()";
+
     // Don't emit the same warning more than once
     static std::set<std::string> already;
 
@@ -490,14 +494,12 @@ namespace caf
       already.insert(key);
       std::cout << std::endl;
       std::cout << "Warning: field '" << key << "' does not exist in file. "
-                << "Falling back to '" << StripSubscripts(fSize->Name()) << "' which is less efficient. "
+                << "Falling back to '" << StripSubscripts(ret) << "' which is less efficient. "
                 << "Consider updating StandardRecord to include '" << key << "'." << std::endl;
       std::cout << std::endl;
     }
 
-    // foo.bar.baz -> foo.bar.@baz.size()
-    const size_t idx = fName.find_last_of('.');
-    return fName.substr(0, idx+1)+"@"+fName.substr(idx+1)+".size()";
+    return ret;
   }
 
   //----------------------------------------------------------------------
