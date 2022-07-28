@@ -54,7 +54,7 @@ namespace caf
 
     friend class Restorer;
 
-    Proxy(TTree* tr, const std::string& name, const long& base, int offset);
+    Proxy(TTree* tr, const std::string& name, long base, int offset);
     Proxy(TTree* tr, const std::string& name) : Proxy(tr, name, 0, 0) {}
 
     // Need to be copyable because Vars return us directly
@@ -104,7 +104,7 @@ namespace caf
     TTree* fTree;
 
     // Flat
-    const long& fBase;
+    long fBase;
     int fOffset;
 
     // Nested
@@ -125,7 +125,7 @@ namespace caf
     ArrayVectorProxyBase(TTree* tr,
                          const std::string& name,
                          bool isNestedContainer,
-                         const long& base, int offset);
+                         long base, int offset);
 
     virtual ~ArrayVectorProxyBase();
 
@@ -147,10 +147,9 @@ namespace caf
     std::string fName;
     bool fIsNestedContainer;
     CAFType fType;
-    const long& fBase;
+    long fBase;
     int fOffset;
     mutable Proxy<long long>* fIdxP;
-    mutable long fIdx;
   };
 
   // Helper functions that don't need to be templated
@@ -164,7 +163,7 @@ namespace caf
     void resize(size_t i);
 
   protected:
-    VectorProxyBase(TTree* tr, const std::string& name, bool isNestedContainer, const long& base, int offset);
+    VectorProxyBase(TTree* tr, const std::string& name, bool isNestedContainer, long base, int offset);
 
     std::string LengthField() const;
     /// Helper for LengthField()
@@ -177,7 +176,7 @@ namespace caf
   template<class T> class Proxy<std::vector<T>>: public VectorProxyBase
   {
   public:
-    Proxy(TTree* tr, const std::string& name, const long& base, int offset)
+    Proxy(TTree* tr, const std::string& name, long base, int offset)
       : VectorProxyBase(tr, name, is_vec<T>::value || std::is_array_v<T>, base, offset)
     {
     }
@@ -240,9 +239,8 @@ namespace caf
       if(i >= fElems.size()) fElems.resize(i+1);
 
       EnsureIdxP();
-      if(fIdxP) fIdx = *fIdxP; // store into an actual value we can point to
 
-      if(!fElems[i]) fElems[i] = new Proxy<T>(fTree, Subscript(i), fIdx, i);
+      if(!fElems[i]) fElems[i] = new Proxy<T>(fTree, Subscript(i), fIdxP ? fIdxP->GetValue() : 0l, i);
     }
 
     mutable std::vector<Proxy<T>*> fElems;
@@ -267,7 +265,7 @@ namespace caf
   template<class T, unsigned int N> class Proxy<T[N]> : public ArrayVectorProxyBase
   {
   public:
-    Proxy(TTree* tr, const std::string& name, const long& base, int offset)
+    Proxy(TTree* tr, const std::string& name, long base, int offset)
       : ArrayVectorProxyBase(tr, name, is_vec<T>::value || std::is_array_v<T>, base, offset)
     {
       fElems.fill(0); // ensure initialized to null
@@ -286,13 +284,11 @@ namespace caf
     const Proxy<T>& operator[](size_t i) const
     {
       EnsureElem(i);
-      if(fIdxP) fIdx = *fIdxP;
       return *fElems[i];
     }
     Proxy<T>& operator[](size_t i)
     {
       EnsureElem(i);
-      if(fIdxP) fIdx = *fIdxP;
       return *fElems[i];
     }
 
@@ -316,7 +312,7 @@ namespace caf
       if(fType != kFlat || TreeHasLeaf(fTree, IndexField())){
         // Regular out-of-line array, handled the same as a vector.
         EnsureIdxP();
-        fElems[i] = new Proxy<T>(fTree, Subscript(i), fIdx, i);
+        fElems[i] = new Proxy<T>(fTree, Subscript(i), fIdxP ? fIdxP->GetValue() : 0, i);
       }
       else{
         // No ..idx field implies this is an "inline" array where the elements
