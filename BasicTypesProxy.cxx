@@ -57,11 +57,10 @@ namespace caf
   }
 
   //----------------------------------------------------------------------
-  CAFType GetCAFType(const TDirectory* dir, TTree* tr)
+  CAFType GetCAFType(TTree* tr)
   {
-    if(!dir && !tr) return kCopiedRecord;
-    if(dir) return kFlatMultiTree;
-    if(tr->GetNbranches() > 1) return kFlatSingleTree;
+    if(!tr) return kCopiedRecord;
+    if(tr->GetNbranches() > 1) return kFlat;
     return kNested;
   }
 
@@ -88,21 +87,19 @@ namespace caf
   //----------------------------------------------------------------------
   const long kZero = 0;
 
-  // Sigh. For multi-tree flatcafs, 'base' is being updated by the caller to
-  // give the row in the tree. But for single-tree flatcafs, this field
-  // signifies a starting position within the array for the current row, and
-  // should always be zero (ignoring the caller) for top-level fields. Enforce
-  // that here.
+  // This field signifies a starting position within the array for the current
+  // row, and should always be zero (ignoring the caller) for top-level
+  // fields. Enforce that here.
   const long& AdjustBase(const long& base, CAFType type, const std::string& name)
   {
-    if(type == kFlatSingleTree && NSubscripts(name) == 0) return kZero;
+    if(type == kFlat && NSubscripts(name) == 0) return kZero;
     return base;
   }
 
   //----------------------------------------------------------------------
-  template<class T> Proxy<T>::Proxy(TDirectory* d, TTree* tr, const std::string& name, const long& base, int offset)
-    : fName(name), fType(GetCAFType(d, tr)),
-      fLeaf(0), fTree(tr), fDir(d),
+  template<class T> Proxy<T>::Proxy(TTree* tr, const std::string& name, const long& base, int offset)
+    : fName(name), fType(GetCAFType(tr)),
+      fLeaf(0), fTree(tr),
       fBase(AdjustBase(base, fType, fName)), fOffset(offset),
       fLeafInfo(0), fBranch(0), fTTF(0), fEntry(-1), fSubIdx(0)
   {
@@ -113,7 +110,7 @@ namespace caf
   //----------------------------------------------------------------------
   template<class T> Proxy<T>::Proxy(const Proxy<T>& p)
     : fName("copy of "+p.fName), fType(kCopiedRecord),
-      fLeaf(0), fTree(0), fDir(0),
+      fLeaf(0), fTree(0),
       fBase(kDummyBase), fOffset(-1),
       fLeafInfo(0), fBranch(0), fTTF(0), fEntry(-1), fSubIdx(-1)
   {
@@ -125,7 +122,7 @@ namespace caf
   //----------------------------------------------------------------------
   template<class T> Proxy<T>::Proxy(const Proxy&& p)
     : fName("move of "+p.fName), fType(kCopiedRecord),
-      fLeaf(0), fTree(0), fDir(0),
+      fLeaf(0), fTree(0),
       fBase(kDummyBase), fOffset(-1),
       fLeafInfo(0), fBranch(0), fTTF(0), fEntry(-1), fSubIdx(-1)
   {
@@ -146,8 +143,7 @@ namespace caf
   {
     switch(fType){
     case kNested: return GetValueNested();
-    case kFlatMultiTree: return GetValueFlatMulti();
-    case kFlatSingleTree: return GetValueFlatSingle();
+    case kFlat: return GetValueFlat();
     case kCopiedRecord: return (T)fVal;
     default: abort();
     }
@@ -185,7 +181,7 @@ namespace caf
   }
 
   //----------------------------------------------------------------------
-  template<class T> T Proxy<T>::GetValueFlatSingle() const
+  template<class T> T Proxy<T>::GetValueFlat() const
   {
     assert(fTree);
 
@@ -216,42 +212,6 @@ namespace caf
     fBranch->GetEntry(fEntry);
 
     GetTypedValueWrapper(fLeaf, fVal, fBase+fOffset);
-
-    return (T)fVal;
-  }
-
-  //----------------------------------------------------------------------
-  template<class T> T Proxy<T>::GetValueFlatMulti() const
-  {
-    // Valid cached or systematically-shifted value
-    if(fEntry == fBase+fOffset) return (T)fVal;
-    fEntry = fBase+fOffset;
-
-    assert(fTree);
-
-    if(!fLeaf){
-      const std::string sname = StripSubscripts(fName);
-      // In a flat tree the branch and leaf have the same name, and this is
-      // quicker than the naive TTree::GetLeaf()
-      fBranch = fTree->GetBranch(sname.c_str());
-      fLeaf = fBranch ? fBranch->GetLeaf(sname.c_str()) : 0;
-
-      if(!fLeaf){
-        std::cout << std::endl << "BasicTypeProxy: Branch '" << sname
-                  << "' not found in tree '" << fTree->GetName() << "'."
-                  << std::endl;
-        abort();
-      }
-
-      if(fName.find("_idx") == std::string::npos &&
-         fName.find("_length") == std::string::npos){ // specific to "nested"
-        SRBranchRegistry::AddBranch(sname);
-      }
-    }
-
-    fBranch->GetEntry(fBase+fOffset);
-
-    GetTypedValueWrapper(fLeaf, fVal, 0);
 
     return (T)fVal;
   }
@@ -340,9 +300,8 @@ namespace caf
     fVal = x;
 
     switch(fType){
-    case kNested:         fEntry = fTree->GetReadEntry(); break;
-    case kFlatMultiTree:  fEntry = fBase+fOffset;         break;
-    case kFlatSingleTree: fEntry = fTree->GetReadEntry(); break;
+    case kNested: fEntry = fTree->GetReadEntry(); break;
+    case kFlat:   fEntry = fTree->GetReadEntry(); break;
     case kCopiedRecord: break;
     default: abort();
     }
@@ -397,13 +356,13 @@ namespace caf
   }
 
   //----------------------------------------------------------------------
-  ArrayVectorProxyBase::ArrayVectorProxyBase(TDirectory* d, TTree* tr,
+  ArrayVectorProxyBase::ArrayVectorProxyBase(TTree* tr,
                                              const std::string& name,
                                              bool isNestedContainer,
                                              const long& base, int offset)
-    : fDir(d), fTree(tr),
+    : fTree(tr),
       fName(name), fIsNestedContainer(isNestedContainer),
-      fType(GetCAFType(d, tr)),
+      fType(GetCAFType(tr)),
       fBase(base), fOffset(offset),
       fIdxP(0), fIdx(0)
   {
@@ -420,11 +379,9 @@ namespace caf
   {
     if(fIdxP) return;
 
-    // Only used for flat trees. For single-tree, only needed for objects not
-    // at top-level.
-    if(fType == kFlatMultiTree ||
-       (fType == kFlatSingleTree && NSubscripts(fName) > 0)){
-      fIdxP = new Proxy<long long>(fDir, fTree, IndexField(), fBase, fOffset);
+    // Only used for flat trees. Only needed for objects not at top-level.
+    if(fType == kFlat && NSubscripts(fName) > 0){
+      fIdxP = new Proxy<long long>(fTree, IndexField(), fBase, fOffset);
     }
   }
 
@@ -457,8 +414,7 @@ namespace caf
   //----------------------------------------------------------------------
   std::string VectorProxyBase::LengthField() const
   {
-    if(fType == kFlatMultiTree) return fName+"_length";
-    if(fType == kFlatSingleTree) return fName+"..length";
+    if(fType == kFlat) return fName+"..length";
 
     // Counts exist, but with non-systematic names
     if(fName == "rec.me.trkkalman"  ) return "rec.me.nkalman";
@@ -506,8 +462,7 @@ namespace caf
   //----------------------------------------------------------------------
   std::string ArrayVectorProxyBase::IndexField() const
   {
-    if(fType == kFlatMultiTree) return fName+"_idx";
-    if(fType == kFlatSingleTree) return fName+"..idx";
+    if(fType == kFlat) return fName+"..idx";
     abort();
   }
 
@@ -530,7 +485,7 @@ namespace caf
   {
     // Nested containers would have the same name for length and idx at each
     // level, which is bad, so their names are uniquified.
-    if(fType == kFlatSingleTree && fIsNestedContainer)
+    if(fType == kFlat && fIsNestedContainer)
       return fName+".elems";
     else
       return fName;
@@ -544,26 +499,11 @@ namespace caf
   }
 
   //----------------------------------------------------------------------
-  TTree* ArrayVectorProxyBase::GetTreeForName() const
-  {
-    if(fType != kFlatMultiTree) return fTree; // all in the same tree
-
-    const std::string sname = StripSubscripts(fName);
-    TTree* tr = (TTree*)fDir->Get(sname.c_str());
-    if(!tr){
-      std::cout << "Couldn't find TTree " << sname
-                << " in " << fDir->GetName() << std::endl;
-      abort();
-    }
-    return tr;
-  }
-
-  //----------------------------------------------------------------------
-  VectorProxyBase::VectorProxyBase(TDirectory* d, TTree* tr,
+  VectorProxyBase::VectorProxyBase(TTree* tr,
                                    const std::string& name,
                                    bool isNestedContainer,
                                    const long& base, int offset)
-    : ArrayVectorProxyBase(d, tr, name, isNestedContainer, base, offset),
+    : ArrayVectorProxyBase(tr, name, isNestedContainer, base, offset),
       fSize(0)
   {
   }
@@ -579,7 +519,7 @@ namespace caf
   {
     if(fSize) return;
 
-    fSize = new Proxy<int>(fDir, fTree, LengthField(), fBase, fOffset);
+    fSize = new Proxy<int>(fTree, LengthField(), fBase, fOffset);
   }
 
   //----------------------------------------------------------------------

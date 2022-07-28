@@ -7,7 +7,6 @@
 #include <string>
 #include <vector>
 
-class TDirectory;
 class TFormLeafInfo;
 class TBranch;
 class TLeaf;
@@ -32,12 +31,11 @@ namespace caf
   enum CAFType
   {
     kNested,
-    kFlatMultiTree,
-    kFlatSingleTree,
+    kFlat,
     kCopiedRecord // Assigned into, not associated with a file
   };
 
-  CAFType GetCAFType(const TDirectory* dir, TTree* tr);
+  CAFType GetCAFType(TTree* tr);
 
   /// Count the subscripts in the name
   int NSubscripts(const std::string& name);
@@ -56,8 +54,8 @@ namespace caf
 
     friend class Restorer;
 
-    Proxy(TDirectory* d, TTree* tr, const std::string& name, const long& base, int offset);
-    Proxy(TTree* tr, const std::string& name) : Proxy(0, tr, name, 0, 0) {}
+    Proxy(TTree* tr, const std::string& name, const long& base, int offset);
+    Proxy(TTree* tr, const std::string& name) : Proxy(tr, name, 0, 0) {}
 
     // Need to be copyable because Vars return us directly
     Proxy(const Proxy&);
@@ -90,8 +88,7 @@ namespace caf
     T GetValueChecked() const;
 
     T GetValueNested() const;
-    T GetValueFlatSingle() const;
-    T GetValueFlatMulti() const;
+    T GetValueFlat() const;
 
     void SetShifted();
 
@@ -107,7 +104,6 @@ namespace caf
     TTree* fTree;
 
     // Flat
-    TDirectory* fDir;
     const long& fBase;
     int fOffset;
 
@@ -126,7 +122,7 @@ namespace caf
     std::string Name() const {return fName;}
 
   protected:
-    ArrayVectorProxyBase(TDirectory* d, TTree* tr,
+    ArrayVectorProxyBase(TTree* tr,
                          const std::string& name,
                          bool isNestedContainer,
                          const long& base, int offset);
@@ -136,7 +132,6 @@ namespace caf
     void EnsureIdxP() const;
 
     void CheckIndex(size_t i, size_t size) const;
-    TTree* GetTreeForName() const;
 
     std::string IndexField() const;
 
@@ -148,7 +143,6 @@ namespace caf
     // Trivial, but requires including TTree.h, which we don't want in header
     bool TreeHasLeaf(TTree* tr, const std::string& name) const;
 
-    TDirectory* fDir;
     TTree* fTree;
     std::string fName;
     bool fIsNestedContainer;
@@ -170,7 +164,7 @@ namespace caf
     void resize(size_t i);
 
   protected:
-    VectorProxyBase(TDirectory* d, TTree* tr, const std::string& name, bool isNestedContainer, const long& base, int offset);
+    VectorProxyBase(TTree* tr, const std::string& name, bool isNestedContainer, const long& base, int offset);
 
     std::string LengthField() const;
     /// Helper for LengthField()
@@ -183,8 +177,8 @@ namespace caf
   template<class T> class Proxy<std::vector<T>>: public VectorProxyBase
   {
   public:
-    Proxy(TDirectory* d, TTree* tr, const std::string& name, const long& base, int offset)
-      : VectorProxyBase(d, tr, name, is_vec<T>::value || std::is_array_v<T>, base, offset)
+    Proxy(TTree* tr, const std::string& name, const long& base, int offset)
+      : VectorProxyBase(tr, name, is_vec<T>::value || std::is_array_v<T>, base, offset)
     {
     }
 
@@ -248,7 +242,7 @@ namespace caf
       EnsureIdxP();
       if(fIdxP) fIdx = *fIdxP; // store into an actual value we can point to
 
-      if(!fElems[i]) fElems[i] = new Proxy<T>(fDir, GetTreeForName(), Subscript(i), fIdx, i);
+      if(!fElems[i]) fElems[i] = new Proxy<T>(fTree, Subscript(i), fIdx, i);
     }
 
     mutable std::vector<Proxy<T>*> fElems;
@@ -273,13 +267,13 @@ namespace caf
   template<class T, unsigned int N> class Proxy<T[N]> : public ArrayVectorProxyBase
   {
   public:
-    Proxy(TDirectory* d, TTree* tr, const std::string& name, const long& base, int offset)
-      : ArrayVectorProxyBase(d, tr, name, is_vec<T>::value || std::is_array_v<T>, base, offset)
+    Proxy(TTree* tr, const std::string& name, const long& base, int offset)
+      : ArrayVectorProxyBase(tr, name, is_vec<T>::value || std::is_array_v<T>, base, offset)
     {
       fElems.fill(0); // ensure initialized to null
     }
 
-    Proxy(TTree* tr, const std::string& name) : Proxy(0, tr, name, 0, 0) {}
+    Proxy(TTree* tr, const std::string& name) : Proxy(tr, name, 0, 0) {}
 
     ~Proxy()
     {
@@ -319,16 +313,16 @@ namespace caf
       CheckIndex(i, N);
       if(fElems[i]) return; // element already created
 
-      if(fType != kFlatSingleTree || TreeHasLeaf(fTree, IndexField())){
+      if(fType != kFlat || TreeHasLeaf(fTree, IndexField())){
         // Regular out-of-line array, handled the same as a vector.
         EnsureIdxP();
-        fElems[i] = new Proxy<T>(fDir, fTree, Subscript(i), fIdx, i);
+        fElems[i] = new Proxy<T>(fTree, Subscript(i), fIdx, i);
       }
       else{
         // No ..idx field implies this is an "inline" array where the elements
         // are in individual branches like foo.0.bar
         const std::string dotname = fName+"."+std::to_string(i);
-        fElems[i] = new Proxy<T>(0, fTree, dotname, fBase, fOffset);
+        fElems[i] = new Proxy<T>(fTree, dotname, fBase, fOffset);
       }
     }
 
