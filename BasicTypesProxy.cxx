@@ -312,6 +312,27 @@ namespace caf
   }
 
   //----------------------------------------------------------------------
+  template<class T> Proxy<T>& Proxy<T>::operator-=(T x)
+  {
+    if constexpr(std::is_same_v<T, std::string>){
+      std::cout << "Proxy<std::string>::operator-=() is meaningless" << std::endl;
+      (void)x;
+      abort();
+    }
+    else if constexpr(std::is_same_v<T, bool>){
+      std::cout << "Proxy<bool>::operator-=() is meaningless" << std::endl;
+      (void)x;
+      abort();
+    }
+    else{
+      // Do it this way to re-use the systematics logic in operator=
+      *this = T(GetValue() - x);
+    }
+
+    return *this;
+  }
+
+  //----------------------------------------------------------------------
   template<class T> Proxy<T>& Proxy<T>::operator*=(T x)
   {
     if constexpr(std::is_same_v<T, std::string>){

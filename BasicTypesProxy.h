@@ -77,6 +77,7 @@ namespace caf
     // In practice these are the only operations that systematic shifts use
     Proxy<T>& operator=(T x);
     Proxy<T>& operator+=(T x);
+    Proxy<T>& operator-=(T x);
     Proxy<T>& operator*=(T x);
 
     std::string Name() const {return fName;}
