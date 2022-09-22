@@ -10,6 +10,8 @@
 #include <iostream>
 #include <fstream>
 
+using namespace std::string_literals;
+
 namespace
 {
   /// Helper for CheckEquals
@@ -60,6 +62,14 @@ namespace caf
   CAFType GetCAFType(TTree* tr)
   {
     if(!tr) return kCopiedRecord;
+
+    // Allow user to override automatic CAF type detection if necessary
+    const char* alias = tr->GetAlias("srproxy_metadata_caftype_override");
+    if(alias){
+      if(alias == "nested"s) return kNested;
+      if(alias == "flat"s) return kFlat;
+    }
+
     if(tr->GetNbranches() > 1) return kFlat;
     return kNested;
   }
