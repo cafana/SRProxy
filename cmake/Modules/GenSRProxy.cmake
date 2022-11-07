@@ -1,7 +1,7 @@
 function(GenSRProxy)
 
   set(options FLAT)
-  set(oneValueArgs HEADER OUTPUT_NAME OUTPUT_PATH TARGETNAME EPILOG)
+  set(oneValueArgs HEADER OUTPUT_NAME OUTPUT_PATH TARGETNAME EPILOG EPILOG_FWD)
   set(multiValueArgs INCLUDE_DIRS DEPENDENCIES)
   cmake_parse_arguments(OPTS 
                       "${options}" 
@@ -32,30 +32,45 @@ function(GenSRProxy)
   endif()
 
   SET(TARGET_ARG)
+  SET(TARGET_ARG_STR)
   if(DEFINED OPTS_TARGETNAME)
     SET(TARGET_ARG --target ${OPTS_TARGETNAME})
+    STRING(REPLACE ";" " " TARGET_ARG_STR "${TARGET_ARG}")
   endif()
 
   SET(EPILOG_ARG)
+  SET(EPILOG_ARG_STR)
   if(DEFINED OPTS_EPILOG)
-    SET(EPILOG_ARG --epilog-fwd ${OPTS_EPILOG})
+    SET(EPILOG_ARG --epilog ${OPTS_EPILOG})
+    STRING(REPLACE ";" " " EPILOG_ARG_STR "${EPILOG_ARG}")
+  endif()
+
+  SET(EPILOG_FWD_ARG)
+  SET(EPILOG_FWD_ARG_STR)
+  if(DEFINED OPTS_EPILOG_FWD)
+    SET(EPILOG_FWD_ARG --epilog-fwd ${OPTS_EPILOG_FWD})
+    STRING(REPLACE ";" " " EPILOG_FWD_ARG_STR "${EPILOG_FWD_ARG}")
   endif()
 
   SET(INCLUDE_ARG)
+  SET(INCLUDE_ARG_STR)
   if(DEFINED OPTS_INCLUDE_DIRS)
     STRING(REPLACE ";" ":" INCLUDE_PATH "${OPTS_INCLUDE_DIRS}")
     SET(INCLUDE_ARG --include-path ${INCLUDE_PATH})
+    STRING(REPLACE ";" " " INCLUDE_ARG_STR "${INCLUDE_ARG}")
   endif()
 
-  SET(OPTS_OUTPUT_PATH_ARG)
+  SET(OUTPUT_PATH_ARG)
+  SET(OUTPUT_PATH_ARG_STR)
   if(DEFINED OPTS_OUTPUT_PATH)
-    SET(OPTS_OUTPUT_PATH_ARG --output-path ${OPTS_OUTPUT_PATH})
+    SET(OUTPUT_PATH_ARG --output-path ${OPTS_OUTPUT_PATH})
+    STRING(REPLACE ";" " " OUTPUT_PATH_ARG_STR "${OUTPUT_PATH_ARG}")
   endif()
 
   message(STATUS "[GenSRProxy] -------")
   message(STATUS "[GenSRProxy] Outputs: ${OPTS_OUTPUT_NAME}.cxx ${OPTS_OUTPUT_NAME}.h FwdDeclare.h")
   message(STATUS "[GenSRProxy] WorkDir: ${CMAKE_CURRENT_BINARY_DIR}")
-  message(STATUS "[GenSRProxy] Command: gen_srproxy ${FLAT_ARG} -i ${OPTS_HEADER} -o ${OPTS_OUTPUT_NAME} ${TARGET_ARG} ${INCLUDE_ARG} ${OPTS_OUTPUT_PATH_ARG}")
+  message(STATUS "[GenSRProxy] Command: gen_srproxy ${FLAT_ARG} -i ${OPTS_HEADER} -o ${OPTS_OUTPUT_NAME} ${TARGET_ARG_STR} ${INCLUDE_ARG_STR} ${OUTPUT_PATH_ARG_STR} ${EPILOG_ARG_STR} ${EPILOG_FWD_ARG_STR}")
   message(STATUS "[GenSRProxy] Dependencies: ${DEPENDENCIES}")
   message(STATUS "[GenSRProxy] -------")
 
@@ -65,10 +80,12 @@ function(GenSRProxy)
     COMMAND $<TARGET_FILE:GenSRProxy>
          ${FLAT_ARG} 
          -i ${OPTS_HEADER} 
-         -o ${OPTS_OUTPUT_NAME} 
+         -o ${OPTS_OUTPUT_NAME}
          ${TARGET_ARG}
          ${INCLUDE_ARG} 
-         ${OPTS_OUTPUT_PATH_ARG} 
+         ${OUTPUT_PATH_ARG}
+         ${EPILOG_ARG}
+         ${EPILOG_FWD_ARG}
     DEPENDS GenSRProxy ${DEPENDENCIES})
 
 endfunction(GenSRProxy)
