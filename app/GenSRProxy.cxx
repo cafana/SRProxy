@@ -373,8 +373,6 @@ int main(int argc, char const *argv[]) {
   ParseOpts(argc, argv);
 
   for (auto const &ip : includes) {
-    std::cout << "[INFO]: Adding \"" << ip
-              << "\" to the interpreter include path." << std::endl;
     gInterpreter->AddIncludePath(ip.c_str());
   }
 
