@@ -1,0 +1,67 @@
+cmake_minimum_required (VERSION 3.14 FATAL_ERROR)
+
+project(SRProxy VERSION 0.4.0 LANGUAGES CXX)
+
+set (SRProxy_VERSION ${PROJECT_VERSION})
+set (SRProxy_VERSION_NUM 040)
+
+set(CMAKE_CXX_STANDARD 17)
+
+#Use the compilers found in the path
+find_program(CMAKE_C_COMPILER NAMES $ENV{CC} gcc PATHS ENV PATH NO_DEFAULT_PATH)
+find_program(CMAKE_CXX_COMPILER NAMES $ENV{CXX} g++ PATHS ENV PATH NO_DEFAULT_PATH)
+
+
+if(CMAKE_BUILD_TYPE STREQUAL "")
+  set(CMAKE_BUILD_TYPE RELWITHDEBINFO)
+elseif(NOT DEFINED CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE RELWITHDEBINFO)
+endif()
+
+LIST(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/cmake/Modules)
+
+#### RPATH handling #####
+
+set(CMAKE_MACOSX_RPATH 1)
+
+# use, i.e. don't skip the full RPATH for the build tree
+SET(CMAKE_SKIP_BUILD_RPATH  FALSE)
+
+# when building, don't use the install RPATH already
+# (but later on when installing)
+SET(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
+
+SET(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}")
+
+# add the automatically determined parts of the RPATH
+# which point to directories outside the build tree to the install RPATH
+SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+
+# the RPATH to be used when installing, but only if it's not a system directory
+LIST(FIND CMAKE_PLATFORM_IMPLICIT_LINK_DIRECTORIES "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}" isSystemDir)
+IF("${isSystemDir}" STREQUAL "-1")
+   SET(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}")
+ENDIF("${isSystemDir}" STREQUAL "-1")
+
+include(CPM)
+
+CPMAddPackage(
+    NAME fmt
+    GIT_TAG 8.1.1
+    GITHUB_REPOSITORY fmtlib/fmt
+)
+
+CPMAddPackage(
+    NAME CMakeModules
+    GIT_TAG stable
+    GITHUB_REPOSITORY NuHepMC/CMakeModules
+    DOWNLOAD_ONLY
+)
+include(${CMakeModules_SOURCE_DIR}/NuHepMCModules.cmake)
+
+include(NuHepMCUtils)
+include(ROOT)
+
+add_subdirectory(app)
+add_subdirectory(src)
+add_subdirectory(test)
