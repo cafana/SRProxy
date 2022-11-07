@@ -11,6 +11,7 @@ set(CMAKE_CXX_STANDARD 17)
 find_program(CMAKE_C_COMPILER NAMES $ENV{CC} gcc PATHS ENV PATH NO_DEFAULT_PATH)
 find_program(CMAKE_CXX_COMPILER NAMES $ENV{CXX} g++ PATHS ENV PATH NO_DEFAULT_PATH)
 
+option(TESTS_ENABLED "Whether to enable tests, OFF by default" OFF)
 
 if(CMAKE_BUILD_TYPE STREQUAL "")
   set(CMAKE_BUILD_TYPE RELWITHDEBINFO)
@@ -64,4 +65,7 @@ include(ROOT)
 
 add_subdirectory(app)
 add_subdirectory(src)
-add_subdirectory(test)
+
+if(TESTS_ENABLED)
+  add_subdirectory(test)
+endif()
