@@ -5,6 +5,12 @@ GenSRProxy(
   OUTPUT_NAME TestTargetproxy
   TARGETNAME test::TestTarget
   INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
+  PROLOG prolog.h
+  EPILOG_FWD epilog_fwd.h
+  EPILOG epilog.h
+  EXTRAS 
+    TestConstituentA extraA.h
+    TestConstituentC extraC.h
   )
 
 add_library(test_proxy SHARED TestTargetproxy.cxx)

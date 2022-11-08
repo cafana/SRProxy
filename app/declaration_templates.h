@@ -22,7 +22,8 @@ std::string const hdr_prolog = R"(
 //{0} == Type
 //{1} == FlatType
 //{2} == BaseClass
-//{3} == Members
+//{3} == AdditionalClasses
+//{4} == Members
 std::string const hdr_body = R"(
 /// Flat encoding of \ref {0}
 template<> class {1}{2}
@@ -35,6 +36,7 @@ public:
 
 protected:
 {3}
+{4}
 }};
 )";
 
@@ -102,7 +104,8 @@ std::string const hdr_prolog = R"(
 //{0} == Type
 //{1} == ProxyType
 //{2} == BaseClass
-//{3} == Members
+//{3} == AdditionalClasses
+//{4} == Members
 std::string const hdr_body = R"(
 /// Proxy for \ref {0}
 template<> class {1}{2}
@@ -117,6 +120,7 @@ public:
   void CheckEquals(const {0}& sr) const;
 
 {3}
+{4}
 }};
 )";
 

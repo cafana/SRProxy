@@ -1,0 +1,1 @@
+#define EPILOG_FWD_INCLUDE "Welcome to the epilog for the fwd declaration"

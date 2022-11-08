@@ -189,7 +189,7 @@ void WalkClass(TClass *cls, std::vector<std::string> &Declarations) {
 }
 
 std::string input_header, target_class;
-std::string output_file;
+std::string output_file, output_dir;
 std::vector<std::string> includes;
 std::string output_path;
 std::string prolog_file, epilog_file, epilog_fwd_file;
@@ -198,6 +198,9 @@ std::string prolog_contents, epilog_contents, epilog_fwd_contents;
 bool gen_flat = false;
 
 std::string qualified_disclaimer;
+std::map<std::string, std::string> additional_class_files;
+std::map<std::string, std::string> additional_class_defintions;
+std::map<std::string, bool> additional_class_definition_used;
 
 void EmitClass(std::string classname, fmt::ostream &out_hdr,
                fmt::ostream &out_impl, fmt::ostream &out_fwd) {
@@ -214,6 +217,7 @@ void EmitClass(std::string classname, fmt::ostream &out_hdr,
   auto cls = TClass::GetClass(classname.c_str());
 
   std::string type = classname;
+  std::string typename_noNS = GetClassName(classname);
   std::string ptype =
       fmt::format(gen_flat ? "flat::Flat<{}>" : "caf::Proxy<{}>", classname);
 
@@ -272,16 +276,24 @@ void EmitClass(std::string classname, fmt::ostream &out_hdr,
   //{2} == ShortType
   //{3} == ProxyType
   out_fwd.print(
-      tmplt::fwd_body, GetNS(classname), GetClassName(classname),
+      tmplt::fwd_body, GetNS(classname), typename_noNS,
       gen_flat ? GetShortFlatType(classname) : GetShortProxyType(classname),
       fmt::format(gen_flat ? "flat::Flat<{}>" : "caf::Proxy<{}>", classname));
 
-  //{0} == Type
-  //{1} == ProxyType
-  //{2} == BaseClass
-  //{3} == Members
+      //{0} == Type
+      //{1} == ProxyType
+      //{2} == BaseClass
+      //{3} == AdditionalClasses
+      //{4} == Members
+      std::string additional_definitions = "";
+  if (additional_class_defintions.count(typename_noNS)) {
+    additional_class_definition_used[typename_noNS] = true;
+    additional_definitions = additional_class_defintions[typename_noNS];
+  }
+
   out_hdr.print(gen_flat ? tmplt::flat::hdr_body : tmplt::proxy::hdr_body, type,
-                ptype, base_declaration, memberlist.str());
+                ptype, base_declaration, additional_definitions,
+                memberlist.str());
 
   //{0} == ProxyType
   //{1} == Inits
@@ -316,23 +328,37 @@ void ParseOpts(int argc, char const *argv[]) {
     if ((opt_it + 1) < argc) {
       if ((arg == "-i") || (arg == "--input")) {
         input_header = argv[++opt_it];
+        continue;
       } else if ((arg == "-t") || (arg == "--target")) {
         target_class = argv[++opt_it];
+        continue;
       } else if ((arg == "-o") || (arg == "--output")) {
         output_file = argv[++opt_it];
+        continue;
       } else if ((arg == "-op") || (arg == "--output-path")) {
         output_path = argv[++opt_it];
         if (output_path.size() && (output_path.back() != '/')) {
           output_path += "/";
         }
+        continue;
+      } else if ((arg == "-od") || (arg == "--output-dir")) {
+        output_dir = argv[++opt_it];
+        if (output_dir.size() && (output_dir.back() != '/')) {
+          output_dir += "/";
+        }
+        continue;
       } else if (arg == "--prolog") {
         prolog_file = argv[++opt_it];
+        continue;
       } else if (arg == "--epilog") {
         epilog_file = argv[++opt_it];
+        continue;
       } else if (arg == "--epilog-fwd") {
         epilog_fwd_file = argv[++opt_it];
+        continue;
       } else if (arg == "-I") {
         includes.push_back(argv[++opt_it]);
+        continue;
       } else if ((arg == "-p") || (arg == "--include-path")) {
 
         std::string ipath = argv[++opt_it];
@@ -348,13 +374,22 @@ void ParseOpts(int argc, char const *argv[]) {
         if (ipath.size()) {
           includes.push_back(ipath);
         }
-
-      } else {
-        Usage(argv);
-        exit(1);
+        continue;
       }
-      continue;
     }
+
+    if ((opt_it + 2) < argc) {
+      if (arg == "--extra") {
+        std::string classname = argv[++opt_it];
+        std::string deffile = argv[++opt_it];
+        additional_class_files[classname] = deffile;
+        continue;
+      }
+    }
+
+    std::cout
+        << "[ERROR]: Unknwon option, or incorrect number of arguments for \""
+        << arg << "\"" << std::endl;
 
     Usage(argv);
     exit(1);
@@ -390,11 +425,27 @@ int main(int argc, char const *argv[]) {
     return 2;
   }
 
+  for (auto const &acf : additional_class_files) {
+    std::ifstream acf_file_stream(acf.second.c_str());
+    if (!acf_file_stream.is_open()) {
+      std::cout << "[ERROR]: Failed to read file: " << acf.second << std::endl;
+      return 3;
+    }
+    std::stringstream ss;
+    ss << acf_file_stream.rdbuf();
+    additional_class_defintions[acf.first] = ss.str();
+    additional_class_definition_used[acf.first] = false;
+  }
+
   std::vector<std::string> Declarations;
   WalkClass(tcls, Declarations);
 
   if (prolog_file.size()) {
     std::ifstream prolog_file_stream(prolog_file.c_str());
+    if (!prolog_file_stream.is_open()) {
+      std::cout << "[ERROR]: Failed to read file: " << prolog_file << std::endl;
+      return 3;
+    }
     std::stringstream ss;
     ss << prolog_file_stream.rdbuf();
     prolog_contents = ss.str();
@@ -402,6 +453,10 @@ int main(int argc, char const *argv[]) {
 
   if (epilog_file.size()) {
     std::ifstream epilog_file_stream(epilog_file.c_str());
+    if (!epilog_file_stream.is_open()) {
+      std::cout << "[ERROR]: Failed to read file: " << epilog_file << std::endl;
+      return 3;
+    }
     std::stringstream ss;
     ss << epilog_file_stream.rdbuf();
     epilog_contents = ss.str();
@@ -409,14 +464,19 @@ int main(int argc, char const *argv[]) {
 
   if (epilog_fwd_file.size()) {
     std::ifstream epilog_fwd_file_stream(epilog_fwd_file.c_str());
+    if (!epilog_fwd_file_stream.is_open()) {
+      std::cout << "[ERROR]: Failed to read file: " << epilog_fwd_file
+                << std::endl;
+      return 3;
+    }
     std::stringstream ss;
     ss << epilog_fwd_file_stream.rdbuf();
     epilog_fwd_contents = ss.str();
   }
 
-  auto out_hdr = fmt::output_file(output_file + ".h");
-  auto out_impl = fmt::output_file(output_file + ".cxx");
-  auto out_fwd = fmt::output_file("FwdDeclare.h");
+  auto out_hdr = fmt::output_file(output_dir + output_file + ".h");
+  auto out_impl = fmt::output_file(output_dir + output_file + ".cxx");
+  auto out_fwd = fmt::output_file(output_dir + "FwdDeclare.h");
 
   //   SRProxy Verion: {0}
   //   datetime: {1}
@@ -457,10 +517,23 @@ int main(int argc, char const *argv[]) {
   //{0} == Header
   //{1} == Input
   out_impl.print(gen_flat ? tmplt::flat::cxx_prolog : tmplt::proxy::cxx_prolog,
-                 fmt::format("{}{}.h", output_path, output_file),
-                 input_header);
+                 fmt::format("{}{}.h", output_path, output_file), input_header);
 
   for (auto classname : Declarations) {
     EmitClass(classname, out_hdr, out_impl, out_fwd);
+  }
+
+  if (epilog_contents.size()) {
+    out_hdr.print(epilog_contents);
+  }
+  if (epilog_fwd_contents.size()) {
+    out_fwd.print(epilog_fwd_contents);
+  }
+
+  for (auto acu : additional_class_definition_used) {
+    if (!acu.second) {
+      std::cout << "[WARN]: --extra class argument: " << acu.first
+                << " was not used." << std::endl;
+    }
   }
 }
