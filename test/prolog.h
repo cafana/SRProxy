@@ -1,0 +1,1 @@
+#define PROLOG_INCLUDE "Welcome to the prolog"
