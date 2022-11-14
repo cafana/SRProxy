@@ -11,6 +11,7 @@ GenSRProxy(
   EXTRAS 
     TestConstituentA extraA.h
     TestConstituentC extraC.h
+  VERBOSE
   )
 
 add_library(test_proxy SHARED TestTargetproxy.cxx)

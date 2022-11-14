@@ -1,6 +1,6 @@
 function(GenSRProxy)
 
-  set(options FLAT)
+  set(options FLAT VERBOSE)
   set(oneValueArgs HEADER OUTPUT_NAME OUTPUT_PATH TARGETNAME PROLOG EPILOG EPILOG_FWD)
   set(multiValueArgs INCLUDE_DIRS DEPENDENCIES EXTRAS)
   cmake_parse_arguments(OPTS 
@@ -24,6 +24,11 @@ function(GenSRProxy)
   SET(FLAT_ARG)
   if(OPTS_FLAT)
     SET(FLAT_ARG --flat)
+  endif()
+
+  SET(VERBOSE_ARG)
+  if(OPTS_VERBOSE)
+    SET(VERBOSE_ARG --verbose)
   endif()
 
   SET(DEPENDENCIES ${HEADER})
@@ -90,6 +95,7 @@ function(GenSRProxy)
          ${EPILOG_FWD_ARG}
          ${PROLOG_ARG}
          ${EXTRAS_ARGS}
+         ${VERBOSE_ARG}
          -od ${CMAKE_CURRENT_BINARY_DIR}
     DEPENDS GenSRProxy ${DEPENDENCIES})
 
