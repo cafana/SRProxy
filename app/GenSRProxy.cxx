@@ -629,9 +629,15 @@ int main(int argc, char const *argv[]) {
   }
 
   if (epilog_contents.size()) {
+    if(verbose){
+      fmt::print("Writing epilog/\n");
+    }
     out_hdr.print("{}", epilog_contents);
   }
   if (epilog_fwd_contents.size()) {
+    if(verbose){
+      fmt::print("Writing epilog for fwd declare/\n");
+    }
     out_fwd.print("{}", epilog_fwd_contents);
   }
 
