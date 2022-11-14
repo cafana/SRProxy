@@ -359,7 +359,28 @@ void EmitClass(std::string classname, fmt::ostream &out_hdr,
 }
 
 void Usage(char const *argv[]) {
-  std::cout << "[USAGE]: " << argv[0] << std::endl;
+  fmt::print(R"([USAGE] {}
+
+Required arguments:
+  -i|--input <header_file>       : The C++ header file that defines the class
+  -t|--target <classname>        : The class to generate a proxy for
+  -o|--output <filename stub>    : Output filename stub
+
+Optional arguments:
+  -op|--output-path <path>       : A path to prepend to include statements in generated headers
+  -od|--output-dir <path>        : The directory to write generated files to
+  --prolog <file path>           : A file to include before the generated proxy class defintion
+  --epilog <file path>           : A file to include after the generated proxy class definition
+  --epilog-fwd <file path>       : A file to include after the list of generated forward declarations
+  -I <path>                      : A directory to add to the include path
+  -p|--include-path <path1[:p2]> : A PATH-like colon-separate list of directories to add to the include path
+  --extra <classname> <file>     : A file to include in the definition of the proxy class for class <classname>
+  --flat                         : Generate a 'flat' file reader rather than the objectified proxy class
+
+  -v|--verbose                   : Be louder
+  -h|-?|--help                   : Print this message
+)",
+             argv[0]);
 }
 
 void ParseOpts(int argc, char const *argv[]) {
@@ -441,7 +462,7 @@ void ParseOpts(int argc, char const *argv[]) {
     }
 
     std::cout
-        << "[ERROR]: Unknwon option, or incorrect number of arguments for \""
+        << "[ERROR]: Unknown option, or incorrect number of arguments for \""
         << arg << "\"" << std::endl;
 
     Usage(argv);
@@ -513,6 +534,9 @@ int main(int argc, char const *argv[]) {
   WalkClass(tcls, Declarations, "- ");
 
   if (prolog_file.size()) {
+    if (verbose) {
+      fmt::print("Reading prolog file: \"{}\"\n", prolog_file);
+    }
     std::ifstream prolog_file_stream(prolog_file.c_str());
     if (!prolog_file_stream.is_open()) {
       std::cout << "[ERROR]: Failed to read file: " << prolog_file << std::endl;
@@ -524,6 +548,9 @@ int main(int argc, char const *argv[]) {
   }
 
   if (epilog_file.size()) {
+    if (verbose) {
+      fmt::print("Reading epilog file: \"{}\"\n", epilog_file);
+    }
     std::ifstream epilog_file_stream(epilog_file.c_str());
     if (!epilog_file_stream.is_open()) {
       std::cout << "[ERROR]: Failed to read file: " << epilog_file << std::endl;
@@ -535,6 +562,9 @@ int main(int argc, char const *argv[]) {
   }
 
   if (epilog_fwd_file.size()) {
+    if (verbose) {
+      fmt::print("Reading epilog fwd file: \"{}\"\n", epilog_fwd_file);
+    }
     std::ifstream epilog_fwd_file_stream(epilog_fwd_file.c_str());
     if (!epilog_fwd_file_stream.is_open()) {
       std::cout << "[ERROR]: Failed to read file: " << epilog_fwd_file
@@ -592,14 +622,17 @@ int main(int argc, char const *argv[]) {
                  fmt::format("{}{}.h", output_path, output_file), input_header);
 
   for (auto classname : Declarations) {
+    if (verbose) {
+      fmt::print("Emitting proxy for class: \"{}\"\n", classname);
+    }
     EmitClass(classname, out_hdr, out_impl, out_fwd);
   }
 
   if (epilog_contents.size()) {
-    out_hdr.print(epilog_contents);
+    out_hdr.print("{}", epilog_contents);
   }
   if (epilog_fwd_contents.size()) {
-    out_fwd.print(epilog_fwd_contents);
+    out_fwd.print("{}", epilog_fwd_contents);
   }
 
   for (auto acu : additional_class_definition_used) {
