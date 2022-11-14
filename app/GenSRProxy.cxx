@@ -19,6 +19,8 @@
 #include <climits>
 #include <unistd.h>
 
+bool verbose = false;
+
 std::string GetVectorValueTypeName(std::string classname) {
   auto openb = classname.find_first_of('<');
   auto closeb = classname.find_last_of('>');
@@ -104,7 +106,8 @@ std::string GetShortFlatType(std::string classname) {
   return std::string("Flat") + GetClassName(classname);
 }
 
-void WalkClass(TClass *cls, std::vector<std::string> &Declarations) {
+void WalkClass(TClass *cls, std::vector<std::string> &Declarations,
+               std::string indent = "") {
   if (!cls) {
     std::cout << "[ERROR]: WalkClass was passed a nullptr." << std::endl;
     abort();
@@ -113,12 +116,21 @@ void WalkClass(TClass *cls, std::vector<std::string> &Declarations) {
   // We have already walked this type
   if (std::find(Declarations.begin(), Declarations.end(), cls->GetName()) !=
       Declarations.end()) {
+    if (verbose) {
+      fmt::print("{}Already known class: \"{}\"\n", indent, cls->GetName());
+    }
     return;
   }
 
   if (IsSTLVector(cls)) { // this enables datamembers that are vectors of
                           // vectors to be properly processed
+    if (verbose) {
+      fmt::print("{}Found STL Vector type: \"{}\"\n", indent, cls->GetName());
+    }
     auto vvt = GetVectorValueTypeName(cls->GetName());
+    if (verbose) {
+      fmt::print("{}Determined value type as: \"{}\"\n", indent, vvt);
+    }
     if (!KnownType(vvt)) {
       std::cout << "[ERROR]: TCling has no typeinfo for " << vvt << std::endl;
       abort();
@@ -127,11 +139,19 @@ void WalkClass(TClass *cls, std::vector<std::string> &Declarations) {
     if (KnownClass(vvt)) { // If the contained type is a class (as opposed to a
                            // primitive), then we should check that we know how
                            // to proxy the vector value type
-      WalkClass(TClass::GetClass(vvt.c_str()), Declarations);
+      if (verbose) {
+        fmt::print("{}Walking RTTI tree for class: \"{}\"\n", indent, vvt);
+      }
+      WalkClass(TClass::GetClass(vvt.c_str()), Declarations, indent + "- ");
     }
 
     // We don't need to emit a proxy class for the vector template itself
     return;
+  }
+
+  if (verbose) {
+    fmt::print("{}Class {}, has {} base classes.\n", indent, cls->GetName(),
+               cls->GetListOfBases()->GetEntries());
   }
 
   if (cls->GetListOfBases()->GetEntries() > 1) {
@@ -145,7 +165,11 @@ void WalkClass(TClass *cls, std::vector<std::string> &Declarations) {
 
   for (auto base_to : *cls->GetListOfBases()) {
     auto bcls = dynamic_cast<TBaseClass *>(base_to)->GetClassPointer();
-    WalkClass(bcls, Declarations);
+    if (verbose) {
+      fmt::print("{}Walking RTTI tree for base class: \"{}\"\n", indent,
+                 bcls->GetName());
+    }
+    WalkClass(bcls, Declarations, indent + "- ");
   }
 
   // Loop through this classes public data members, checking if we need to emit
@@ -159,12 +183,26 @@ void WalkClass(TClass *cls, std::vector<std::string> &Declarations) {
       abort();
     }
 
+    if (verbose) {
+      fmt::print("{}Examining data member: \"{}\" of type {}\n", indent,
+                 dm.GetName(), dm.GetTypeName());
+    }
+
     // If this data member's type is not a primitive, then we need to check if
     // we need to emit a proxy class for it, either the type itself, or the
     // value type of an STL vector.
     if (IsSTLVector(dm)) {
 
+      if (verbose) {
+        fmt::print("{}Data member has STL Vector type: \"{}\"\n", indent,
+                   dm.GetTypeName());
+      }
+
       auto vvt = GetVectorValueTypeName(dm.GetTypeName());
+
+      if (verbose) {
+        fmt::print("{}Determined value type as: \"{}\"\n", indent, vvt);
+      }
       if (!KnownType(vvt)) {
         std::cout << "[ERROR]: TCling has no typeinfo for " << vvt << std::endl;
         abort();
@@ -173,17 +211,29 @@ void WalkClass(TClass *cls, std::vector<std::string> &Declarations) {
       if (KnownClass(vvt)) { // If the contained type is a class (as opposed to
                              // a primitive), then we should check that we know
                              // how to proxy the vector value type
-        WalkClass(TClass::GetClass(vvt.c_str()), Declarations);
+        if (verbose) {
+          fmt::print("{}Walking RTTI tree for class: \"{}\"\n", indent, vvt);
+        }
+        WalkClass(TClass::GetClass(vvt.c_str()), Declarations, indent + "- ");
       }
 
     } else if (!IsBasic(dm)) {
-      WalkClass(TClass::GetClass(dm.GetTypeName()), Declarations);
+      if (verbose) {
+        fmt::print("{}Walking RTTI tree for class: \"{}\"\n", indent,
+                   dm.GetTypeName());
+      }
+      WalkClass(TClass::GetClass(dm.GetTypeName()), Declarations,
+                indent + "- ");
     }
   }
 
   // Add this type to the list of types if we don't already know about it
   if (std::find(Declarations.begin(), Declarations.end(), cls->GetName()) ==
       Declarations.end()) {
+    if (verbose) {
+      fmt::print("{}Storing declaration of class: \"{}\"\n", indent,
+                 cls->GetName());
+    }
     Declarations.push_back(cls->GetName());
   }
 }
@@ -280,12 +330,12 @@ void EmitClass(std::string classname, fmt::ostream &out_hdr,
       gen_flat ? GetShortFlatType(classname) : GetShortProxyType(classname),
       fmt::format(gen_flat ? "flat::Flat<{}>" : "caf::Proxy<{}>", classname));
 
-      //{0} == Type
-      //{1} == ProxyType
-      //{2} == BaseClass
-      //{3} == AdditionalClasses
-      //{4} == Members
-      std::string additional_definitions = "";
+  //{0} == Type
+  //{1} == ProxyType
+  //{2} == BaseClass
+  //{3} == AdditionalClasses
+  //{4} == Members
+  std::string additional_definitions = "";
   if (additional_class_defintions.count(typename_noNS)) {
     additional_class_definition_used[typename_noNS] = true;
     additional_definitions = additional_class_defintions[typename_noNS];
@@ -322,6 +372,9 @@ void ParseOpts(int argc, char const *argv[]) {
 
     if (arg == "--flat") {
       gen_flat = true;
+      continue;
+    } else if ((arg == "-v") || (arg == "--verbose")) {
+      verbose = true;
       continue;
     }
 
@@ -408,13 +461,24 @@ int main(int argc, char const *argv[]) {
   ParseOpts(argc, argv);
 
   for (auto const &ip : includes) {
+    if (verbose) {
+      fmt::print("Adding include path: \"{}\"\n", ip);
+    }
     gInterpreter->AddIncludePath(ip.c_str());
+  }
+
+  if (verbose) {
+    fmt::print("Interpreting header: \"{}\"\n", input_header);
   }
 
   if (!gInterpreter->LoadText(fmt::format("#include \"{}\"", input_header)
                                   .c_str())) { // returns int(true) on failure
     std::cout << "[ERROR]: TCling failed read: " << input_header << std::endl;
     return 1;
+  }
+
+  if (verbose) {
+    fmt::print("Requesting RTTI for class: \"{}\"\n", target_class);
   }
 
   auto tcls = TClass::GetClass(target_class.c_str());
@@ -426,6 +490,11 @@ int main(int argc, char const *argv[]) {
   }
 
   for (auto const &acf : additional_class_files) {
+    if (verbose) {
+      fmt::print(
+          "Loading additional implementation file: \"{}\" for class {}\n",
+          acf.second, acf.first);
+    }
     std::ifstream acf_file_stream(acf.second.c_str());
     if (!acf_file_stream.is_open()) {
       std::cout << "[ERROR]: Failed to read file: " << acf.second << std::endl;
@@ -438,7 +507,10 @@ int main(int argc, char const *argv[]) {
   }
 
   std::vector<std::string> Declarations;
-  WalkClass(tcls, Declarations);
+  if (verbose) {
+    fmt::print("Walking RTTI tree for class: \"{}\"\n", target_class);
+  }
+  WalkClass(tcls, Declarations, "- ");
 
   if (prolog_file.size()) {
     std::ifstream prolog_file_stream(prolog_file.c_str());
