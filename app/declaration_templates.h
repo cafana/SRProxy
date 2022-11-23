@@ -12,7 +12,6 @@ std::string const hdr_prolog = R"(
 #pragma once
 
 {0}
-
 #include "SRProxy/FlatBasicTypes.h"
 
 #include "{1}FwdDeclare.h"
@@ -94,7 +93,6 @@ std::string const hdr_prolog = R"(
 #pragma once
 
 {0}
-
 #include "SRProxy/BasicTypesProxy.h"
 
 #include "{1}FwdDeclare.h"
@@ -118,7 +116,6 @@ public:
   Proxy& operator=(const {0}& x);
 
   void CheckEquals(const {0}& sr) const;
-
 {3}
 {4}
 }};
@@ -184,9 +181,11 @@ std::string const member_init = "  {0}(tr, Join(name, \"{0}\"), base, offset),\n
 std::string const disclaimer = R"(// This file was generated automatically, do not edit it manually
 // Generation details:
 //   SRProxy Verion: {0}
-//   datetime: {1:%Y-%m-%d %H:%M:%S} UTC
-//   host: {2}
-//   command: {3}
+//   ROOT Version: {1}
+//   ROOT Library Dir: {2}
+//   datetime: {3:%Y-%m-%d %H:%M:%S} UTC
+//   host: {4}
+//   command: {5}
   )";
 
 //{0} == Namespace

@@ -11,6 +11,7 @@
 #include "fmt/format.h"
 #include "fmt/os.h"
 
+#include <algorithm>
 #include <fstream>
 #include <iostream>
 #include <set>
@@ -19,7 +20,8 @@
 #include <climits>
 #include <unistd.h>
 
-bool verbose = false;
+int verbose = 0;
+bool order_alphabetically = false;
 
 std::string GetVectorValueTypeName(std::string classname) {
   auto openb = classname.find_first_of('<');
@@ -48,8 +50,9 @@ bool KnownClass(std::string name) {
       gInterpreter->ClassInfo_Factory(name.c_str()));
 }
 
-bool IsBasic(TDataMember &dm) {
-  return (dm.IsBasic() || (std::string(dm.GetTypeName()) == "string"));
+bool IsStandardTypeOrEnum(TDataMember &dm) {
+  return (dm.IsBasic() || dm.IsEnum() ||
+          (std::string(dm.GetTypeName()) == "string"));
 }
 
 std::string QualifystdNS(std::string classname) {
@@ -81,7 +84,16 @@ std::string GetTypeName(TDataMember &dm) {
     tn << "[" << dm.GetMaxIndex(i) << "]";
   }
 
-  return QualifystdNS(tn.str());
+  std::string name = QualifystdNS(tn.str());
+
+  // remove C++03 spaces between angle-brackets
+  size_t pos = name.find("> >");
+  while (pos != std::string::npos) {
+    name.replace(pos, 3, ">>");
+    pos = name.find("> >");
+  }
+
+  return name;
 }
 
 std::string GetNS(std::string classname) {
@@ -116,7 +128,7 @@ void WalkClass(TClass *cls, std::vector<std::string> &Declarations,
   // We have already walked this type
   if (std::find(Declarations.begin(), Declarations.end(), cls->GetName()) !=
       Declarations.end()) {
-    if (verbose) {
+    if (verbose > 1) {
       fmt::print("{}Already known class: \"{}\"\n", indent, cls->GetName());
     }
     return;
@@ -124,11 +136,11 @@ void WalkClass(TClass *cls, std::vector<std::string> &Declarations,
 
   if (IsSTLVector(cls)) { // this enables datamembers that are vectors of
                           // vectors to be properly processed
-    if (verbose) {
+    if (verbose > 1) {
       fmt::print("{}Found STL Vector type: \"{}\"\n", indent, cls->GetName());
     }
     auto vvt = GetVectorValueTypeName(cls->GetName());
-    if (verbose) {
+    if (verbose > 1) {
       fmt::print("{}Determined value type as: \"{}\"\n", indent, vvt);
     }
     if (!KnownType(vvt)) {
@@ -149,7 +161,7 @@ void WalkClass(TClass *cls, std::vector<std::string> &Declarations,
     return;
   }
 
-  if (verbose) {
+  if (verbose > 1) {
     fmt::print("{}Class {}, has {} base classes.\n", indent, cls->GetName(),
                cls->GetListOfBases()->GetEntries());
   }
@@ -174,18 +186,41 @@ void WalkClass(TClass *cls, std::vector<std::string> &Declarations,
 
   // Loop through this classes public data members, checking if we need to emit
   // proxies for any of their types
-  for (auto dm_to : *cls->GetListOfAllPublicDataMembers()) {
-    auto &dm = dynamic_cast<TDataMember &>(*dm_to);
 
-    if (!dm.IsValid()) {
+  std::vector<TDataMember *> DataMembers;
+
+  for (auto dm_to : *cls->GetListOfAllPublicDataMembers()) {
+
+    auto dm_ptr = dynamic_cast<TDataMember *>(dm_to);
+
+    if (!dm_ptr->IsValid()) {
       std::cout << "[ERROR]: Failed to read type for data member "
-                << dm.GetName() << " of class " << cls->GetName() << std::endl;
+                << dm_ptr->GetName() << " of class " << cls->GetName()
+                << std::endl;
       abort();
     }
 
-    if (verbose) {
-      fmt::print("{}Examining data member: \"{}\" of type {}\n", indent,
-                 dm.GetName(), dm.GetTypeName());
+    DataMembers.push_back(dm_ptr);
+  }
+
+  // The pygccxml/castxml version traversed data members alphabetically rather
+  // than in declaration order.
+  if (order_alphabetically) {
+    std::sort(DataMembers.begin(), DataMembers.end(),
+              [](TDataMember const *l, TDataMember const *r) {
+                return std::string(l->GetName()).compare(r->GetName()) < 0;
+              });
+  }
+
+  for (auto dm_ptr : DataMembers) {
+    auto &dm = *dm_ptr;
+
+    if (verbose > 1) {
+      fmt::print(
+          "{}Examining data member: \"{}\" of type {} (Basic: {}, Enum: {})\n",
+          indent, dm.GetName(), dm.GetTypeName(),
+          (IsStandardTypeOrEnum(dm) ? "true" : "false"),
+          (dm.IsEnum() ? "true" : "false"));
     }
 
     // If this data member's type is not a primitive, then we need to check if
@@ -193,14 +228,14 @@ void WalkClass(TClass *cls, std::vector<std::string> &Declarations,
     // value type of an STL vector.
     if (IsSTLVector(dm)) {
 
-      if (verbose) {
+      if (verbose > 1) {
         fmt::print("{}Data member has STL Vector type: \"{}\"\n", indent,
                    dm.GetTypeName());
       }
 
       auto vvt = GetVectorValueTypeName(dm.GetTypeName());
 
-      if (verbose) {
+      if (verbose > 1) {
         fmt::print("{}Determined value type as: \"{}\"\n", indent, vvt);
       }
       if (!KnownType(vvt)) {
@@ -217,7 +252,7 @@ void WalkClass(TClass *cls, std::vector<std::string> &Declarations,
         WalkClass(TClass::GetClass(vvt.c_str()), Declarations, indent + "- ");
       }
 
-    } else if (!IsBasic(dm)) {
+    } else if (!IsStandardTypeOrEnum(dm)) {
       if (verbose) {
         fmt::print("{}Walking RTTI tree for class: \"{}\"\n", indent,
                    dm.GetTypeName());
@@ -251,6 +286,11 @@ std::string qualified_disclaimer;
 std::map<std::string, std::string> additional_class_files;
 std::map<std::string, std::string> additional_class_defintions;
 std::map<std::string, bool> additional_class_definition_used;
+
+std::string CutSStream(std::stringstream const &ss, size_t n) {
+  std::string rtn = ss.str();
+  return rtn.substr(0, rtn.length() - n);
+}
 
 void EmitClass(std::string classname, fmt::ostream &out_hdr,
                fmt::ostream &out_impl, fmt::ostream &out_fwd) {
@@ -296,8 +336,33 @@ void EmitClass(std::string classname, fmt::ostream &out_hdr,
     }
   }
 
+  std::vector<TDataMember *> DataMembers;
+
   for (auto dm_to : *cls->GetListOfAllPublicDataMembers()) {
-    auto &dm = dynamic_cast<TDataMember &>(*dm_to);
+
+    auto dm_ptr = dynamic_cast<TDataMember *>(dm_to);
+
+    if (!dm_ptr->IsValid()) {
+      std::cout << "[ERROR]: Failed to read type for data member "
+                << dm_ptr->GetName() << " of class " << cls->GetName()
+                << std::endl;
+      abort();
+    }
+
+    DataMembers.push_back(dm_ptr);
+  }
+
+  // The pygccxml/castxml version traversed data members alphabetically rather
+  // than in declaration order.
+  if (order_alphabetically) {
+    std::sort(DataMembers.begin(), DataMembers.end(),
+              [](TDataMember const *l, TDataMember const *r) {
+                return std::string(l->GetName()).compare(r->GetName()) < 0;
+              });
+  }
+
+  for (auto dm_ptr : DataMembers) {
+    auto &dm = *dm_ptr;
 
     std::string mname = dm.GetName();
 
@@ -343,7 +408,7 @@ void EmitClass(std::string classname, fmt::ostream &out_hdr,
 
   out_hdr.print(gen_flat ? tmplt::flat::hdr_body : tmplt::proxy::hdr_body, type,
                 ptype, base_declaration, additional_definitions,
-                memberlist.str());
+                CutSStream(memberlist, 1));
 
   //{0} == ProxyType
   //{1} == Inits
@@ -353,13 +418,13 @@ void EmitClass(std::string classname, fmt::ostream &out_hdr,
   out_impl.print(gen_flat ? tmplt::flat::cxx_body : tmplt::proxy::cxx_body,
                  ptype,
                  // Trim off the last newline and comma from this list
-                 inits.str().substr(0, inits.str().length() - 2), type,
-                 (gen_flat ? fill_body : assign_body).str(),
-                 (gen_flat ? clear_body : checkequals_body).str());
+                 CutSStream(inits, 2), type,
+                 CutSStream(gen_flat ? fill_body : assign_body, 1),
+                 CutSStream(gen_flat ? clear_body : checkequals_body, 1));
 }
 
 void Usage(char const *argv[]) {
-  fmt::print(R"([USAGE] {}
+  fmt::print(R"([USAGE] {}  -i <header_file> -t <classname> -o <filename_stub> [args]
 
 Required arguments:
   -i|--input <header_file>       : The C++ header file that defines the class
@@ -376,8 +441,10 @@ Optional arguments:
   -p|--include-path <path1[:p2]> : A PATH-like colon-separate list of directories to add to the include path
   --extra <classname> <file>     : A file to include in the definition of the proxy class for class <classname>
   --flat                         : Generate a 'flat' file reader rather than the objectified proxy class
+  --order-alphabetically         : Emit datamembers in alphabetic, rather than declaration, order.
 
   -v|--verbose                   : Be louder
+  -vv|--vverbose                 : Be even louder
   -h|-?|--help                   : Print this message
 )",
              argv[0]);
@@ -395,7 +462,13 @@ void ParseOpts(int argc, char const *argv[]) {
       gen_flat = true;
       continue;
     } else if ((arg == "-v") || (arg == "--verbose")) {
-      verbose = true;
+      verbose = 1;
+      continue;
+    } else if ((arg == "-vv") || (arg == "--vverbose")) {
+      verbose = 2;
+      continue;
+    } else if (arg == "--order-alphabetically") {
+      order_alphabetically = true;
       continue;
     }
 
@@ -601,9 +674,10 @@ int main(int argc, char const *argv[]) {
     generator_host << (have_user ? "@" : "") << hostname;
   }
 
-  qualified_disclaimer = fmt::format(
-      tmplt::disclaimer, SRProxy_VERSION, fmt::gmtime(std::time(nullptr)),
-      generator_host.str(), command_buffer.str());
+  qualified_disclaimer =
+      fmt::format(tmplt::disclaimer, SRProxy_VERSION, BUILD_ROOT_VERSION,
+                  BUILD_ROOT_LIBRARY_DIR, fmt::gmtime(std::time(nullptr)),
+                  generator_host.str(), command_buffer.str());
 
   out_hdr.print(qualified_disclaimer);
   out_impl.print(qualified_disclaimer);
@@ -629,13 +703,13 @@ int main(int argc, char const *argv[]) {
   }
 
   if (epilog_contents.size()) {
-    if(verbose){
+    if (verbose) {
       fmt::print("Writing epilog/\n");
     }
     out_hdr.print("{}", epilog_contents);
   }
   if (epilog_fwd_contents.size()) {
-    if(verbose){
+    if (verbose) {
       fmt::print("Writing epilog for fwd declare/\n");
     }
     out_fwd.print("{}", epilog_fwd_contents);
