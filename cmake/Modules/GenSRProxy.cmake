@@ -1,3 +1,18 @@
+
+# GenSRProxy(
+# [FLAT] 
+# [VERBOSE]
+# [HEADER <arg>]
+# [OUTPUT_NAME <arg>]
+# [OUTPUT_PATH <arg>]
+# [TARGETNAME <arg>]
+# [PROLOG <arg>]
+# [EPILOG <arg>]
+# [EPILOG_FWD <arg>]
+# [INCLUDE_DIRS <arg1> [<arg2> ...]]
+# [DEPENDENCIES <arg1> [<arg2> ...]]
+# [EXTRAS <arg1> [<arg2> ...]]
+#)
 function(GenSRProxy)
 
   set(options FLAT VERBOSE)
