@@ -5,7 +5,9 @@ project(SRProxy VERSION 0.4.0 LANGUAGES CXX)
 set (SRProxy_VERSION ${PROJECT_VERSION})
 set (SRProxy_VERSION_NUM 040)
 
-set(CMAKE_CXX_STANDARD 17)
+SET(SRPROXY_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_STANDARD ${SRPROXY_CXX_STANDARD})
 
 #Use the compilers found in the path
 find_program(CMAKE_C_COMPILER NAMES $ENV{CC} gcc PATHS ENV PATH NO_DEFAULT_PATH)
@@ -64,6 +66,11 @@ include(${CMakeModules_SOURCE_DIR}/NuHepMCModules.cmake)
 include(NuHepMCUtils)
 include(ROOT)
 
+if(ROOT_CXX_STANDARD GREATER CMAKE_CXX_STANDARD)
+  set(CMAKE_CXX_STANDARD ${ROOT_CXX_STANDARD})
+  cmessage(STATUS "ROOT Requires higher CXX_STANDARD: ${CMAKE_CXX_STANDARD}")
+endif()
+
 add_subdirectory(app)
 add_subdirectory(src)
 
@@ -74,3 +81,26 @@ endif()
 if(EMIT_UPS_TABLE)
   add_subdirectory(ups)
 endif()
+
+include(CMakePackageConfigHelpers)
+write_basic_package_version_file(
+    "${PROJECT_BINARY_DIR}/SRProxyConfigVersion.cmake"
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY AnyNewerVersion
+)
+configure_package_config_file(
+  "${CMAKE_CURRENT_LIST_DIR}/cmake/Templates/SRProxyConfig.cmake.in"
+  "${PROJECT_BINARY_DIR}/SRProxyConfig.cmake"
+  INSTALL_DESTINATION this/is/ignored
+  NO_SET_AND_CHECK_MACRO
+  NO_CHECK_REQUIRED_COMPONENTS_MACRO
+)
+
+install(EXPORT SRProxyTargets
+        DESTINATION lib/cmake/SRProxy)
+install(FILES "${PROJECT_BINARY_DIR}/SRProxyConfigVersion.cmake"
+              "${PROJECT_BINARY_DIR}/SRProxyConfig.cmake"
+        DESTINATION lib/cmake/SRProxy)
+
+configure_file(${CMAKE_CURRENT_LIST_DIR}/cmake/Templates/setup.SRProxy.sh.in ${PROJECT_BINARY_DIR}/setup.SRProxy.sh @ONLY)
+install(PROGRAMS ${PROJECT_BINARY_DIR}/setup.SRProxy.sh DESTINATION bin)
