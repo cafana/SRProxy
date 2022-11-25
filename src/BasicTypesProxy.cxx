@@ -14,12 +14,16 @@ using namespace std::string_literals;
 
 namespace {
 /// Helper for CheckEquals
-template <class T> bool AreEqual(const T &x, const T &y) {
-  if constexpr (std::is_floating_point<T>::value) {
-    return x == y || (std::isnan(x) && std::isnan(y));
-  } else {
-    return x == y;
-  }
+template <class T>
+std::enable_if_t<std::is_floating_point<T>::value, bool> AreEqual(const T &x,
+                                                                  const T &y) {
+  return x == y || (std::isnan(x) && std::isnan(y));
+}
+
+template <class T>
+std::enable_if_t<!std::is_floating_point<T>::value, bool> AreEqual(const T &x,
+                                                                   const T &y) {
+  return x == y;
 }
 } // namespace
 
@@ -146,19 +150,26 @@ template <class T> T Proxy<T>::GetValue() const {
 }
 
 //----------------------------------------------------------------------
+template <class T>
+std::enable_if_t<std::is_floating_point<T>::value, void>
+CheckValue(T const &val, std::string fName, TTree *fTree, long fEntry) {
+  if (isnan(val) || isinf(val)) {
+    std::cout << "SRProxy: Warning: " << fName << " = " << val;
+    if (fTree && fTree->GetDirectory() && fTree->GetDirectory()->GetFile()) {
+      std::cout << " in entry " << fEntry << " of "
+                << fTree->GetDirectory()->GetFile()->GetName();
+    }
+    std::cout << std::endl;
+  }
+}
+template <class T>
+std::enable_if_t<!std::is_floating_point<T>::value, void>
+CheckValue(T const &, std::string, TTree *, long) {}
+
 template <class T> T Proxy<T>::GetValueChecked() const {
   const T val = GetValue();
 
-  if constexpr (std::is_floating_point<T>::value) {
-    if (isnan(val) || isinf(val)) {
-      std::cout << "SRProxy: Warning: " << fName << " = " << val;
-      if (fTree && fTree->GetDirectory() && fTree->GetDirectory()->GetFile()) {
-        std::cout << " in entry " << fEntry << " of "
-                  << fTree->GetDirectory()->GetFile()->GetName();
-      }
-      std::cout << std::endl;
-    }
-  }
+  CheckValue(val, fName, fTree, fEntry);
 
   return val;
 }
@@ -312,51 +323,79 @@ template <class T> Proxy<T> &Proxy<T>::operator=(T x) {
 }
 
 //----------------------------------------------------------------------
+
+template <class T>
+std::enable_if_t<std::is_same<T, bool>::value, T>
+CheckSensiblePlusEqualsType(T const &, T const &) {
+  std::cout << "Proxy<bool>::operator+=() is meaningless" << std::endl;
+  abort();
+}
+template <class T>
+std::enable_if_t<!std::is_same<T, bool>::value, T>
+CheckSensiblePlusEqualsType(T const &a, T const &b) {
+  return T(a + b);
+}
+
 template <class T> Proxy<T> &Proxy<T>::operator+=(T x) {
-  if constexpr (!std::is_same<T, bool>::value) {
-    // Do it this way to re-use the systematics logic in operator=
-    *this = T(GetValue() + x);
-  } else {
-    std::cout << "Proxy<bool>::operator+=() is meaningless" << std::endl;
-    (void)x;
-    abort();
-  }
+
+  // Do it this way to re-use the systematics logic in operator=
+  *this = CheckSensiblePlusEqualsType(GetValue(), x);
 
   return *this;
 }
 
 //----------------------------------------------------------------------
+template <class T>
+std::enable_if_t<std::is_same<T, bool>::value, T>
+CheckSensibleMinusEqualsType(T const &, T const &) {
+  std::cout << "Proxy<bool>::operator-=() is meaningless" << std::endl;
+  abort();
+}
+template <class T>
+std::enable_if_t<std::is_same<T, std::string>::value, T>
+CheckSensibleMinusEqualsType(T const &, T const &) {
+  std::cout << "Proxy<std::string>::operator-=() is meaningless" << std::endl;
+  abort();
+}
+template <class T>
+std::enable_if_t<
+    !(std::is_same<T, bool>::value || std::is_same<T, std::string>::value), T>
+CheckSensibleMinusEqualsType(T const &a, T const &b) {
+  return T(a - b);
+}
+
 template <class T> Proxy<T> &Proxy<T>::operator-=(T x) {
-  if constexpr (std::is_same<T, std::string>::value) {
-    std::cout << "Proxy<std::string>::operator-=() is meaningless" << std::endl;
-    (void)x;
-    abort();
-  } else if constexpr (std::is_same<T, bool>::value) {
-    std::cout << "Proxy<bool>::operator-=() is meaningless" << std::endl;
-    (void)x;
-    abort();
-  } else {
-    // Do it this way to re-use the systematics logic in operator=
-    *this = T(GetValue() - x);
-  }
+
+  // Do it this way to re-use the systematics logic in operator=
+  *this = CheckSensibleMinusEqualsType(GetValue(), x);
 
   return *this;
 }
 
 //----------------------------------------------------------------------
+template <class T>
+std::enable_if_t<std::is_same<T, bool>::value, T>
+CheckSensibleTimesEqualsType(T const &, T const &) {
+  std::cout << "Proxy<bool>::operator*=() is meaningless" << std::endl;
+  abort();
+}
+template <class T>
+std::enable_if_t<std::is_same<T, std::string>::value, T>
+CheckSensibleTimesEqualsType(T const &, T const &) {
+  std::cout << "Proxy<std::string>::operator*=() is meaningless" << std::endl;
+  abort();
+}
+template <class T>
+std::enable_if_t<
+    !(std::is_same<T, bool>::value || std::is_same<T, std::string>::value), T>
+CheckSensibleTimesEqualsType(T const &a, T const &b) {
+  return T(a * b);
+}
+
 template <class T> Proxy<T> &Proxy<T>::operator*=(T x) {
-  if constexpr (std::is_same<T, std::string>::value) {
-    std::cout << "Proxy<std::string>::operator*=() is meaningless" << std::endl;
-    (void)x;
-    abort();
-  } else if constexpr (std::is_same<T, bool>::value) {
-    std::cout << "Proxy<bool>::operator*=() is meaningless" << std::endl;
-    (void)x;
-    abort();
-  } else {
-    // Do it this way to re-use the systematics logic in operator=
-    *this = T(GetValue() * x);
-  }
+
+  // Do it this way to re-use the systematics logic in operator=
+  *this = CheckSensibleTimesEqualsType(GetValue(), x);
 
   return *this;
 }
