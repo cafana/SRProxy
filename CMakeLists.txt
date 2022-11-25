@@ -57,9 +57,11 @@ CPMAddPackage(
 
 find_package(ROOT REQUIRED)
 
-if(ROOT_CXX_STANDARD GREATER CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD ${ROOT_CXX_STANDARD})
-  cmessage(STATUS "ROOT Requires higher CXX_STANDARD: ${CMAKE_CXX_STANDARD}")
+get_target_property(ROOT_INTERFACE_INCLUDES ROOT::Core INTERFACE_INCLUDE_DIRECTORIES)
+#Older ROOTConfig.cmake do not set up their targets correctly
+if("${ROOT_INTERFACE_INCLUDES}" STREQUAL "ROOT_INTERFACE_INCLUDES-NOTFOUND" OR "${ROOT_INTERFACE_INCLUDES}x" STREQUAL "x")
+  message(STATUS "Jury Rigging ROOT::Core with additional interface include directories: ${ROOT_INCLUDE_DIRS}")
+  target_include_directories(ROOT::Core INTERFACE ${ROOT_INCLUDE_DIRS})
 endif()
 
 add_subdirectory(app)
