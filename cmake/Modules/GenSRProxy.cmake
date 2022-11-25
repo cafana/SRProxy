@@ -103,7 +103,7 @@ function(GenSRProxy)
   add_custom_command(
     OUTPUT ${OPTS_OUTPUT_NAME}.cxx ${OPTS_OUTPUT_NAME}.h FwdDeclare.h
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    COMMAND $<TARGET_FILE:GenSRProxy>
+    COMMAND $<TARGET_FILE:gen_srproxy>
          ${FLAT_ARG} 
          -i ${OPTS_HEADER} 
          -o ${OPTS_OUTPUT_NAME}
@@ -116,6 +116,6 @@ function(GenSRProxy)
          ${EXTRAS_ARGS}
          ${VERBOSE_ARG}
          -od ${CMAKE_CURRENT_BINARY_DIR}
-    DEPENDS GenSRProxy ${DEPENDENCIES})
+    DEPENDS gen_srproxy ${DEPENDENCIES})
 
 endfunction(GenSRProxy)

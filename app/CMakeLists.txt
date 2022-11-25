@@ -1,5 +1,5 @@
 add_executable(gen_srproxy gen_srproxy.cxx)
-target_link_libraries(gen_srproxy ROOT::ROOT fmt::fmt)
+target_link_libraries(gen_srproxy ROOT::Cling ROOT::Core fmt::fmt)
 target_compile_definitions(gen_srproxy PUBLIC 
   SRProxy_VERSION="${SRProxy_VERSION}"
   BUILD_ROOT_VERSION="${ROOT_VERSION}"
