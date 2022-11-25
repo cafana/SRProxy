@@ -99,6 +99,7 @@ install(EXPORT SRProxyTargets
         DESTINATION lib/cmake/SRProxy)
 install(FILES "${PROJECT_BINARY_DIR}/SRProxyConfigVersion.cmake"
               "${PROJECT_BINARY_DIR}/SRProxyConfig.cmake"
+              "${PROJECT_SOURCE_DIR}/cmake/Modules/GenSRProxy.cmake"
         DESTINATION lib/cmake/SRProxy)
 
 configure_file(${CMAKE_CURRENT_LIST_DIR}/cmake/Templates/setup.SRProxy.sh.in ${PROJECT_BINARY_DIR}/setup.SRProxy.sh @ONLY)
