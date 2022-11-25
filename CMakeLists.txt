@@ -14,7 +14,7 @@ find_program(CMAKE_C_COMPILER NAMES $ENV{CC} gcc PATHS ENV PATH NO_DEFAULT_PATH)
 find_program(CMAKE_CXX_COMPILER NAMES $ENV{CXX} g++ PATHS ENV PATH NO_DEFAULT_PATH)
 
 option(TESTS_ENABLED "Whether to enable tests, OFF by default" OFF)
-option(EMIT_UPS_TABLE "Whether to enable building of UPS product, OFF by default" OFF)
+option(EMIT_UPS_PRODUCT "Whether to enable building of UPS product, OFF by default" OFF)
 
 if(CMAKE_BUILD_TYPE STREQUAL "")
   set(CMAKE_BUILD_TYPE RELWITHDEBINFO)
@@ -47,6 +47,16 @@ IF("${isSystemDir}" STREQUAL "-1")
    SET(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}")
 ENDIF("${isSystemDir}" STREQUAL "-1")
 
+
+if(EMIT_UPS_PRODUCT)
+  add_subdirectory(ups)
+
+  if(NOT "${CMAKE_INSTALL_PREFIX}x" STREQUAL "x")
+    set(CMAKE_INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX}/srproxy/${SRPROXY_UPS_VERSION})
+  endif()
+
+endif()
+
 include(CPM)
 
 CPMAddPackage(
@@ -69,10 +79,6 @@ add_subdirectory(src)
 
 if(TESTS_ENABLED)
   add_subdirectory(test)
-endif()
-
-if(EMIT_UPS_TABLE)
-  add_subdirectory(ups)
 endif()
 
 include(CMakePackageConfigHelpers)
