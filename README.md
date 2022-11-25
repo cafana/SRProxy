@@ -121,4 +121,18 @@ target_link_libraries(MyClassProxy PUBLIC SRProxy::BasicTypes)
 
 ## Generating a UPS product
 
-This needs fixing. Halp.
+If you configure the build with `-DEMIT_UPS_PRODUCT=ON` the build system will attempt to install the build targets in something that can be relocated to a UPS product database. It will use the result of `ups flavor` at configure time, and the result of `ups active | grep "^root"` to determine the build flavor and ROOT UPS dependency. It will create an install tree below CMAKE_INSTALL_PREFIX like:
+
+```
+
+<prefix>/srproxy/<srproxy_version>/<build_flavor>_<qualifiers>/ups/srproxy.table
+<prefix>/srproxy/<srproxy_version>/<build_flavor>_<qualifiers>/../../<srproxy_version>.version/<build_flavor>_<qualifiers>
+<prefix>/srproxy/<srproxy_version>/<build_flavor>_<qualifiers>/bin/gen_srproxy
+<prefix>/srproxy/<srproxy_version>/<build_flavor>_<qualifiers>/lib/libSRProxy_BasicTypes.so
+<prefix>/srproxy/<srproxy_version>/<build_flavor>_<qualifiers>/lib/cmake/SRProxy/SRProxyTargets.cmake
+<prefix>/srproxy/<srproxy_version>/<build_flavor>_<qualifiers>/lib/cmake/SRProxy/SRProxyTargets-relwithdebinfo.cmake
+<prefix>/srproxy/<srproxy_version>/<build_flavor>_<qualifiers>/lib/cmake/SRProxy/SRProxyConfigVersion.cmake
+<prefix>/srproxy/<srproxy_version>/<build_flavor>_<qualifiers>/lib/cmake/SRProxy/SRProxyConfig.cmake
+<prefix>/srproxy/<srproxy_version>/<build_flavor>_<qualifiers>/lib/cmake/SRProxy/GenSRProxy.cmake
+<prefix>/srproxy/<srproxy_version>/<build_flavor>_<qualifiers>/bin/setup.SRProxy.sh
+```
