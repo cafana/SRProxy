@@ -55,16 +55,7 @@ CPMAddPackage(
     GITHUB_REPOSITORY fmtlib/fmt
 )
 
-CPMAddPackage(
-    NAME CMakeModules
-    GIT_TAG stable
-    GITHUB_REPOSITORY NuHepMC/CMakeModules
-    DOWNLOAD_ONLY
-)
-include(${CMakeModules_SOURCE_DIR}/NuHepMCModules.cmake)
-
-include(NuHepMCUtils)
-include(ROOT)
+find_package(ROOT REQUIRED)
 
 if(ROOT_CXX_STANDARD GREATER CMAKE_CXX_STANDARD)
   set(CMAKE_CXX_STANDARD ${ROOT_CXX_STANDARD})
@@ -104,3 +95,4 @@ install(FILES "${PROJECT_BINARY_DIR}/SRProxyConfigVersion.cmake"
 
 configure_file(${CMAKE_CURRENT_LIST_DIR}/cmake/Templates/setup.SRProxy.sh.in ${PROJECT_BINARY_DIR}/setup.SRProxy.sh @ONLY)
 install(PROGRAMS ${PROJECT_BINARY_DIR}/setup.SRProxy.sh DESTINATION bin)
+
