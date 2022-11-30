@@ -91,6 +91,7 @@ This will set up the `GenSRProxy` command from [GenSRProxy.cmake](cmake/Modules/
 GenSRProxy(
   [FLAT] 
   [VERBOSE]
+  [VVERBOSE]
   [HEADER <arg>]
   [OUTPUT_NAME <arg>]
   [OUTPUT_PATH <arg>]
@@ -101,6 +102,7 @@ GenSRProxy(
   [INCLUDE_DIRS <arg1> [<arg2> ...]]
   [DEPENDENCIES <arg1> [<arg2> ...]]
   [EXTRAS <arg1> [<arg2> ...]]
+  [DEFINITIONS <arg1> [<arg2> ...]]
 )
 ```
 
