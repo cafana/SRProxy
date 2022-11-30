@@ -2,6 +2,7 @@
 # GenSRProxy(
 # [FLAT] 
 # [VERBOSE]
+# [VVERBOSE]
 # [HEADER <arg>]
 # [OUTPUT_NAME <arg>]
 # [OUTPUT_PATH <arg>]
@@ -12,11 +13,12 @@
 # [INCLUDE_DIRS <arg1> [<arg2> ...]]
 # [DEPENDENCIES <arg1> [<arg2> ...]]
 # [EXTRAS <arg1> [<arg2> ...]]
+# [DEFINITIONS <arg1> [<arg2> ...]]
 #)
 function(GenSRProxy)
 
-  set(options FLAT VERBOSE)
-  set(oneValueArgs HEADER OUTPUT_NAME OUTPUT_PATH TARGETNAME PROLOG EPILOG EPILOG_FWD)
+  set(options FLAT VERBOSE VVERBOSE)
+  set(oneValueArgs HEADER OUTPUT_NAME OUTPUT_PATH TARGETNAME PROLOG EPILOG EPILOG_FWD DEFINITIONS)
   set(multiValueArgs INCLUDE_DIRS DEPENDENCIES EXTRAS)
   cmake_parse_arguments(OPTS 
                       "${options}" 
@@ -44,6 +46,11 @@ function(GenSRProxy)
   SET(VERBOSE_ARG)
   if(OPTS_VERBOSE)
     SET(VERBOSE_ARG --verbose)
+  endif()
+
+  SET(VVERBOSE_ARG)
+  if(OPTS_VVERBOSE)
+    SET(VVERBOSE_ARG --vverbose)
   endif()
 
   SET(DEPENDENCIES ${HEADER})
@@ -85,18 +92,10 @@ function(GenSRProxy)
     SET(OUTPUT_PATH_ARG --output-path ${OPTS_OUTPUT_PATH})
   endif()
 
-  SET(EXTRAS_ARGS)
-  if(DEFINED OPTS_EXTRAS)
-    SET(ISCLASS TRUE)
-    foreach(EXT ${OPTS_EXTRAS})
-      if(ISCLASS)
-        LIST(APPEND EXTRAS_ARGS --extra ${EXT})
-        SET(ISCLASS FALSE)
-      else()
-        LIST(APPEND EXTRAS_ARGS ${EXT})
-        LIST(APPEND DEPENDENCIES ${EXT})
-        SET(ISCLASS TRUE)
-      endif()
+  SET(DEFINITIONS_ARGS)
+  if(DEFINED OPTS_DEFINITIONS)
+    foreach(DEF ${OPTS_DEFINITIONS})
+      LIST(APPEND DEFINITIONS_ARGS -D${DEF})
     endforeach()
   endif()
 
@@ -108,13 +107,15 @@ function(GenSRProxy)
          -i ${OPTS_HEADER} 
          -o ${OPTS_OUTPUT_NAME}
          ${TARGET_ARG}
-         ${INCLUDE_ARG} 
+         ${INCLUDE_ARG}
+         ${DEFINITIONS_ARGS}
          ${OUTPUT_PATH_ARG}
          ${EPILOG_ARG}
          ${EPILOG_FWD_ARG}
          ${PROLOG_ARG}
          ${EXTRAS_ARGS}
          ${VERBOSE_ARG}
+         ${VVERBOSE_ARG}
          -od ${CMAKE_CURRENT_BINARY_DIR}
     DEPENDS gen_srproxy ${DEPENDENCIES})
 

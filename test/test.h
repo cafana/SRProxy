@@ -9,7 +9,7 @@ struct TestBase {
 };
 
 struct TestConstituentC {
-  int A;
+  NEEDTHISTOBUILD A;
   float B;
   double C;
 };
@@ -26,6 +26,8 @@ struct TestConstituentB {
   std::vector<float> B;
 };
 
+#ifdef REVEAL_TestTarget
+
 struct TestTarget : public TestBase {
   int A;
   float B;
@@ -40,5 +42,7 @@ struct TestTarget : public TestBase {
   std::vector<std::vector<std::string>> vvs;
 
 };
+
+#endif
 
 } // namespace test

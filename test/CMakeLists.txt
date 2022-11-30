@@ -11,10 +11,14 @@ GenSRProxy(
   EXTRAS 
     TestConstituentA extraA.h
     TestConstituentC extraC.h
-  VERBOSE
+  DEFINITIONS 
+    NEEDTHISTOBUILD=int
+    REVEAL_TestTarget
+  VVERBOSE
   )
 
 add_library(test_proxy SHARED TestTargetproxy.cxx)
+target_compile_definitions(test_proxy PUBLIC NEEDTHISTOBUILD=int REVEAL_TestTarget)
 target_include_directories(test_proxy PUBLIC 
   ${CMAKE_CURRENT_SOURCE_DIR} 
   ${CMAKE_SOURCE_DIR}/src/include)

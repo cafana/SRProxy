@@ -276,6 +276,7 @@ void WalkClass(TClass *cls, std::vector<std::string> &Declarations,
 std::string input_header, target_class;
 std::string output_file, output_dir;
 std::vector<std::string> includes;
+std::vector<std::string> defines;
 std::string output_path;
 std::string prolog_file, epilog_file, epilog_fwd_file;
 std::string prolog_contents, epilog_contents, epilog_fwd_contents;
@@ -424,7 +425,8 @@ void EmitClass(std::string classname, fmt::ostream &out_hdr,
 }
 
 void Usage(char const *argv[]) {
-  fmt::print(R"([USAGE] {}  -i <header_file> -t <classname> -o <filename_stub> [args]
+  fmt::print(
+      R"([USAGE] {}  -i <header_file> -t <classname> -o <filename_stub> [args]
 
 Required arguments:
   -i|--input <header_file>       : The C++ header file that defines the class
@@ -432,27 +434,55 @@ Required arguments:
   -o|--output <filename stub>    : Output filename stub
 
 Optional arguments:
+  -I <path>                      : A directory to add to the include path
+  -D <symbol>[=val]              : A symbol definition, with optional value, to the interpreter before parsing
+
+  --flat                         : Generate a 'flat' file reader rather than the objectified proxy class
+
+  --order-alphabetically         : Emit datamembers in alphabetic, rather than declaration, order.
+
+  -p|--include-path <path1[:p2]> : A PATH-like colon-separate list of directories to add to the include path
   -op|--output-path <path>       : A path to prepend to include statements in generated headers
   -od|--output-dir <path>        : The directory to write generated files to
   --prolog <file path>           : A file to include before the generated proxy class defintion
   --epilog <file path>           : A file to include after the generated proxy class definition
   --epilog-fwd <file path>       : A file to include after the list of generated forward declarations
-  -I <path>                      : A directory to add to the include path
-  -p|--include-path <path1[:p2]> : A PATH-like colon-separate list of directories to add to the include path
   --extra <classname> <file>     : A file to include in the definition of the proxy class for class <classname>
-  --flat                         : Generate a 'flat' file reader rather than the objectified proxy class
-  --order-alphabetically         : Emit datamembers in alphabetic, rather than declaration, order.
 
   -v|--verbose                   : Be louder
   -vv|--vverbose                 : Be even louder
   -h|-?|--help                   : Print this message
 )",
-             argv[0]);
+      argv[0]);
 }
 
 void ParseOpts(int argc, char const *argv[]) {
+  std::vector<std::string> opt_split = {
+      argv[0],
+  };
+
+  // split up -Dsymbol and -I/path/ style compiler flags so that the parser
+  // below can be homogeneous while also accepting standard format of compiler
+  // flags
   for (int opt_it = 1; opt_it < argc; opt_it++) {
     std::string arg = argv[opt_it];
+    if (arg.length() > 2) {
+      if (arg.substr(0, 2) == "-D") {
+        opt_split.push_back("-D");
+        opt_split.push_back(arg.substr(2));
+      } else if (arg.substr(0, 2) == "-I") {
+        opt_split.push_back("-I");
+        opt_split.push_back(arg.substr(2));
+      } else {
+        opt_split.push_back(arg);
+      }
+    } else {
+      opt_split.push_back(arg);
+    }
+  }
+
+  for (int opt_it = 1; opt_it < opt_split.size(); opt_it++) {
+    std::string arg = opt_split[opt_it];
     if ((arg == "-h") || (arg == "-?") || (arg == "--help")) {
       Usage(argv);
       exit(0);
@@ -472,43 +502,46 @@ void ParseOpts(int argc, char const *argv[]) {
       continue;
     }
 
-    if ((opt_it + 1) < argc) {
+    if ((opt_it + 1) < opt_split.size()) {
       if ((arg == "-i") || (arg == "--input")) {
-        input_header = argv[++opt_it];
+        input_header = opt_split[++opt_it];
         continue;
       } else if ((arg == "-t") || (arg == "--target")) {
-        target_class = argv[++opt_it];
+        target_class = opt_split[++opt_it];
         continue;
       } else if ((arg == "-o") || (arg == "--output")) {
-        output_file = argv[++opt_it];
+        output_file = opt_split[++opt_it];
         continue;
       } else if ((arg == "-op") || (arg == "--output-path")) {
-        output_path = argv[++opt_it];
+        output_path = opt_split[++opt_it];
         if (output_path.size() && (output_path.back() != '/')) {
           output_path += "/";
         }
         continue;
       } else if ((arg == "-od") || (arg == "--output-dir")) {
-        output_dir = argv[++opt_it];
+        output_dir = opt_split[++opt_it];
         if (output_dir.size() && (output_dir.back() != '/')) {
           output_dir += "/";
         }
         continue;
       } else if (arg == "--prolog") {
-        prolog_file = argv[++opt_it];
+        prolog_file = opt_split[++opt_it];
         continue;
       } else if (arg == "--epilog") {
-        epilog_file = argv[++opt_it];
+        epilog_file = opt_split[++opt_it];
         continue;
       } else if (arg == "--epilog-fwd") {
-        epilog_fwd_file = argv[++opt_it];
+        epilog_fwd_file = opt_split[++opt_it];
         continue;
       } else if (arg == "-I") {
-        includes.push_back(argv[++opt_it]);
+        includes.push_back(opt_split[++opt_it]);
+        continue;
+      } else if (arg == "-D") {
+        defines.push_back(opt_split[++opt_it]);
         continue;
       } else if ((arg == "-p") || (arg == "--include-path")) {
 
-        std::string ipath = argv[++opt_it];
+        std::string ipath = opt_split[++opt_it];
         size_t colon = ipath.find_first_of(':');
         while (colon != std::string::npos) {
           if (colon != 0) {
@@ -525,10 +558,10 @@ void ParseOpts(int argc, char const *argv[]) {
       }
     }
 
-    if ((opt_it + 2) < argc) {
+    if ((opt_it + 2) < opt_split.size()) {
       if (arg == "--extra") {
-        std::string classname = argv[++opt_it];
-        std::string deffile = argv[++opt_it];
+        std::string classname = opt_split[++opt_it];
+        std::string deffile = opt_split[++opt_it];
         additional_class_files[classname] = deffile;
         continue;
       }
@@ -559,6 +592,24 @@ int main(int argc, char const *argv[]) {
       fmt::print("Adding include path: \"{}\"\n", ip);
     }
     gInterpreter->AddIncludePath(ip.c_str());
+  }
+
+  for (auto def : defines) {
+    if (verbose) {
+      fmt::print("Adding symbol definition: \"{}\"\n", def);
+    }
+
+    auto eq_pos = def.find_first_of('=');
+    if (eq_pos != std::string::npos) {
+      if (verbose) {
+        std::string mdef = def;
+        mdef[eq_pos] = ' ';
+        fmt::print("  \"{}\" => \"{}\"\n", def, mdef);
+      }
+      def[eq_pos] = ' ';
+    }
+
+    gInterpreter->LoadText(fmt::format("#define {}", def).c_str());
   }
 
   if (verbose) {

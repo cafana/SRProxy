@@ -49,19 +49,23 @@ Running `gen_srproxy --help` at the time of writing results in:
 Required arguments:
   -i|--input <header_file>       : The C++ header file that defines the class
   -t|--target <classname>        : The class to generate a proxy for
-  -o|--output <filename_stub>    : Output filename stub
+  -o|--output <filename stub>    : Output filename stub
 
 Optional arguments:
+  -I <path>                      : A directory to add to the include path
+  -D <symbol>[=val]              : A symbol definition, with optional value, to the interpreter before parsing
+
+  --flat                         : Generate a 'flat' file reader rather than the objectified proxy class
+
+  --order-alphabetically         : Emit datamembers in alphabetic, rather than declaration, order.
+  
+  -p|--include-path <path1[:p2]> : A PATH-like colon-separate list of directories to add to the include path
   -op|--output-path <path>       : A path to prepend to include statements in generated headers
   -od|--output-dir <path>        : The directory to write generated files to
   --prolog <file path>           : A file to include before the generated proxy class defintion
   --epilog <file path>           : A file to include after the generated proxy class definition
   --epilog-fwd <file path>       : A file to include after the list of generated forward declarations
-  -I <path>                      : A directory to add to the include path
-  -p|--include-path <path1[:p2]> : A PATH-like colon-separate list of directories to add to the include path
   --extra <classname> <file>     : A file to include in the definition of the proxy class for class <classname>
-  --flat                         : Generate a 'flat' file reader rather than the objectified proxy class
-  --order-alphabetically         : Emit datamembers in alphabetic, rather than declaration, order.
 
   -v|--verbose                   : Be louder
   -vv|--vverbose                 : Be even louder
