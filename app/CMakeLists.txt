@@ -4,4 +4,4 @@ target_compile_definitions(gen_srproxy PUBLIC
   SRProxy_VERSION="${SRProxy_VERSION}"
   BUILD_ROOT_VERSION="${ROOT_VERSION}"
   BUILD_ROOT_LIBRARY_DIR="${ROOT_LIBRARY_DIR}")
-install(TARGETS gen_srproxy DESTINATION bin)
+install(TARGETS gen_srproxy EXPORT SRProxyTargets DESTINATION bin)
