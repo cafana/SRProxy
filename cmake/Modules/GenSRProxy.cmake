@@ -18,8 +18,8 @@
 function(GenSRProxy)
 
   set(options FLAT VERBOSE VVERBOSE)
-  set(oneValueArgs HEADER OUTPUT_NAME OUTPUT_PATH TARGETNAME PROLOG EPILOG EPILOG_FWD DEFINITIONS)
-  set(multiValueArgs INCLUDE_DIRS DEPENDENCIES EXTRAS)
+  set(oneValueArgs HEADER OUTPUT_NAME OUTPUT_PATH TARGETNAME PROLOG EPILOG EPILOG_FWD)
+  set(multiValueArgs INCLUDE_DIRS DEPENDENCIES EXTRAS DEFINITIONS)
   cmake_parse_arguments(OPTS 
                       "${options}" 
                       "${oneValueArgs}"
