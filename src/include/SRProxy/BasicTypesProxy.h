@@ -424,7 +424,6 @@ protected:
 
 } // namespace caf
 
-namespace std {
 template <class T> T min(const caf::Proxy<T> &a, T b) {
   return std::min(a.GetValue(), b);
 }
@@ -450,8 +449,3 @@ template <class T> bool isnan(const caf::Proxy<T> &x) {
 template <class T> bool isinf(const caf::Proxy<T> &x) {
   return std::isinf(x.GetValue());
 }
-} // namespace std
-
-// There are also versions of these not in std:: that we want to override
-using std::isinf;
-using std::isnan;

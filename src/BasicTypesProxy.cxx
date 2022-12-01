@@ -11,6 +11,8 @@
 #include <iostream>
 
 using namespace std::string_literals;
+using std::isnan;
+using std::isinf;
 
 namespace {
 /// Helper for CheckEquals
@@ -459,16 +461,6 @@ std::string VectorProxyBase::NName() const {
 std::string VectorProxyBase::LengthField() const {
   if (fType == kFlat)
     return fName + "..length";
-
-  // Counts exist, but with non-systematic names
-  if (fName == "rec.me.trkkalman")
-    return "rec.me.nkalman";
-  if (fName == "rec.me.trkdiscrete")
-    return "rec.me.ndiscrete";
-  if (fName == "rec.me.trkcosmic")
-    return "rec.me.ncosmic";
-  if (fName == "rec.me.trkbpf")
-    return "rec.me.nbpf";
 
   // foo.bar.baz -> foo.bar.nbaz
   const std::string nname = NName();
