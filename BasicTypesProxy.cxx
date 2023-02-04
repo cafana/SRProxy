@@ -39,8 +39,8 @@ namespace
     public:
       ~InfNanTable() { EmitTable(); }
 
-      void LogInf(const std::string& varPath, const std::string& file, std::size_t entry)  { Log(fInfEncounters, varPath, file, entry); CheckAbort(); };
-      void LogNaN(const std::string& varPath, const std::string& file, std::size_t entry)  { Log(fNaNEncounters, varPath, file, entry); CheckAbort(); };
+      void LogInf(const std::string& varPath, const char * file, std::size_t entry)  { Log(fInfEncounters, varPath, file, entry); CheckAbort(); };
+      void LogNaN(const std::string& varPath, const char * file, std::size_t entry)  { Log(fNaNEncounters, varPath, file, entry); CheckAbort(); };
 
       void EmitTable(std::ostream & stream = std::cerr) const
       {
@@ -93,7 +93,7 @@ namespace
         } // if (!checkedVar)
       } // CheckAbort()
 
-      static void Log(std::map<std::string, Encounters>& encountersMap, const std::string& varPath, const std::string& file, std::size_t entry)
+      static void Log(std::map<std::string, Encounters>& encountersMap, const std::string& varPath, const char * file, std::size_t entry)
       {
         Encounters & encounters = encountersMap[varPath];  // will default-construct if not found
         if (encounters.count++ == 0)
@@ -236,7 +236,7 @@ namespace caf
     const T val = GetValue();
 
     if constexpr(std::is_floating_point_v<T>){
-      std::string filename = (fTree && fTree->GetDirectory() && fTree->GetDirectory()->GetFile()) ? fTree->GetDirectory()->GetFile()->GetName() : "";
+      const char * filename = (fTree && fTree->GetDirectory() && fTree->GetDirectory()->GetFile()) ? fTree->GetDirectory()->GetFile()->GetName() : "";
       if(isnan(val))
         ::infNanTable.LogNaN(fName, filename, fEntry);
       else if (isinf(val))
