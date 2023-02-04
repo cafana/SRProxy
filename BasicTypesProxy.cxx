@@ -37,12 +37,12 @@ namespace
       };
 
     public:
-      ~InfNanTable() { EmitTable(); }
+      ~InfNanTable() noexcept { EmitTable(); }
 
       void LogInf(const std::string& varPath, const char * file, std::size_t entry)  { Log(fInfEncounters, varPath, file, entry); CheckAbort(); };
       void LogNaN(const std::string& varPath, const char * file, std::size_t entry)  { Log(fNaNEncounters, varPath, file, entry); CheckAbort(); };
 
-      void EmitTable(std::ostream & stream = std::cerr) const
+      void EmitTable(std::ostream & stream = std::cerr) const noexcept
       {
         bool showedHeader = false;
         bool anyWarns = false;
