@@ -46,7 +46,7 @@ namespace
       {
         bool showedHeader = false;
         bool anyWarns = false;
-        for (const auto & encounters : std::vector<const decltype(fNaNEncounters)*>{&fNaNEncounters, &fInfEncounters})
+        for (const auto encounters : {&fNaNEncounters, &fInfEncounters})
         {
           if (encounters->empty())
             continue;
