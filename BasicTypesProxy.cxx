@@ -24,6 +24,91 @@ namespace
       return x == y;
     }
   }
+
+  /// Helper class to track inf/nans encountered.
+  class InfNanTable
+  {
+    private:
+      struct Encounters
+      {
+        std::size_t count = 0;  /// total number of times this var saw a NaN/inf
+        std::string firstFile;  /// first file a NaN/inf was seen in
+        std::size_t firstEntry = std::numeric_limits<std::size_t>::max(); /// entry number within firstFile where the first NaN/inf was seen
+      };
+
+    public:
+      ~InfNanTable() noexcept { EmitTable(); }
+
+      void LogInf(const std::string& varPath, const char * file, std::size_t entry)  { Log(fInfEncounters, varPath, file, entry); CheckAbort(); };
+      void LogNaN(const std::string& varPath, const char * file, std::size_t entry)  { Log(fNaNEncounters, varPath, file, entry); CheckAbort(); };
+
+      void EmitTable(std::ostream & stream = std::cerr) const noexcept
+      {
+        bool showedHeader = false;
+        bool anyWarns = false;
+        for (const auto encounters : {&fNaNEncounters, &fInfEncounters})
+        {
+          if (encounters->empty())
+            continue;
+
+          anyWarns = true;
+          if (!showedHeader)
+          {
+            stream << "\n\n\x1B[33mWARNING:\033[0m\n";
+            showedHeader = true;
+          }
+          stream << "\n\x1B[33mSRProxy encountered " << (encounters == &fNaNEncounters ? "NaN" : "inf") << " in the following variables:\033[0m\n";
+          for (const auto & encounterPair : *encounters)
+          {
+            stream << "  '\x1B[95m" << encounterPair.first << "\033[0m' (" << encounterPair.second.count << " encounters)\n";
+            if (!encounterPair.second.firstFile.empty())
+              stream  << "     first encountered in entry " << encounterPair.second.firstEntry << " of file: " << encounterPair.second.firstFile << "\n";
+          } // for (encounterPair)
+        } // for (encounters)
+
+        if (anyWarns)
+          stream << "\nSet environment variable SRPROXY_ABORT_ON_INFNAN=1 to instead abort immediately when inf/NaN is encountered.\n";
+      } // InfNaNTable::EmitTable()
+
+
+    private:
+      /// Set environment variable SRPROXY_ABORT_ON_INFNAN=1 to abort immediately when an inf or NaN is encountered
+      void CheckAbort() const
+      {
+        // user can tell us to abort immediately if any NaNs/infs are found.
+        // (useful for debugging)
+        static bool checkedVar = false;
+        if (! checkedVar)
+        {
+          if( auto val = getenv("SRPROXY_ABORT_ON_INFNAN") )
+          {
+            if (strcmp(val, "0") != 0)
+            {
+              EmitTable(std::cerr);
+              std::cerr << "Aborting on first inf/NaN per configuration.  Unset $SRPROXY_ABORT_ON_INFNAN to disable this behavior.\n";
+              abort();
+            }
+          } // if ( val )
+          checkedVar = true;
+        } // if (!checkedVar)
+      } // CheckAbort()
+
+      static void Log(std::map<std::string, Encounters>& encountersMap, const std::string& varPath, const char * file, std::size_t entry)
+      {
+        Encounters & encounters = encountersMap[varPath];  // will default-construct if not found
+        if (encounters.count++ == 0)
+        {
+          encounters.firstFile = file;
+          encounters.firstEntry = entry;
+        }
+      }
+
+      std::map<std::string, Encounters> fNaNEncounters;
+      std::map<std::string, Encounters> fInfEncounters;
+
+  };
+
+  InfNanTable infNanTable;
 }
 
 namespace caf
@@ -151,13 +236,11 @@ namespace caf
     const T val = GetValue();
 
     if constexpr(std::is_floating_point_v<T>){
-      if(isnan(val) || isinf(val)){
-        std::cout << "SRProxy: Warning: " << fName << " = " << val;
-        if(fTree && fTree->GetDirectory() && fTree->GetDirectory()->GetFile()){
-          std::cout << " in entry " << fEntry << " of " << fTree->GetDirectory()->GetFile()->GetName();
-        }
-        std::cout << std::endl;
-      }
+      const char * filename = (fTree && fTree->GetDirectory() && fTree->GetDirectory()->GetFile()) ? fTree->GetDirectory()->GetFile()->GetName() : "";
+      if(isnan(val))
+        ::infNanTable.LogNaN(fName, filename, fEntry);
+      else if (isinf(val))
+        ::infNanTable.LogInf(fName, filename, fEntry);
     }
 
     return val;
@@ -253,10 +336,10 @@ namespace caf
       const size_t open_idx = fName.find('[');
       // Do we have exactly one set of [] in the name?
       if(open_idx != std::string::npos && open_idx == fName.rfind('[')){
-	const size_t close_idx = fName.find(']');
+        const size_t close_idx = fName.find(']');
 
-	std::string numPart = fName.substr(open_idx+1, close_idx-open_idx-1);
-	fSubIdx = atoi(numPart.c_str());
+        std::string numPart = fName.substr(open_idx+1, close_idx-open_idx-1);
+        fSubIdx = atoi(numPart.c_str());
       }
     }
 
@@ -310,6 +393,7 @@ namespace caf
   {
     if constexpr(!std::is_same_v<T, bool>){
       // Do it this way to re-use the systematics logic in operator=
+      // todo: should this be GetValueChecked()?  (otherwise we silently += a NaN/inf)
       *this = T(GetValue() + x);
     }
     else{
@@ -357,6 +441,7 @@ namespace caf
     }
     else{
       // Do it this way to re-use the systematics logic in operator=
+      // todo: should this be GetValueChecked()?  (otherwise we silently *= a NaN/inf)
       *this = T(GetValue() * x);
     }
 
