@@ -16,7 +16,7 @@ class TTree;
 namespace caf
 {
   /// this constant is passed by reference into the various Proxy constructors.
-  inline const long kDummyBase = -1;
+  inline const long kDummyBase = 0;
 
   class SRBranchRegistry
   {

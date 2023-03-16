@@ -188,11 +188,13 @@ namespace caf
   {
   }
 
+  const int kDummyBaseUninit = -1;
+
   //----------------------------------------------------------------------
   template<class T> Proxy<T>::Proxy(const Proxy<T>& p)
     : fName("copy of "+p.fName), fType(kCopiedRecord),
       fLeaf(0), fTree(0),
-      fBase(kDummyBase), fOffset(-1),
+      fBase(kDummyBaseUninit), fOffset(-1),
       fLeafInfo(0), fBranch(0), fTTF(0), fEntry(-1), fSubIdx(-1)
   {
     // Ensure that the value is evaluated and baked in in the parent object, so
@@ -204,7 +206,7 @@ namespace caf
   template<class T> Proxy<T>::Proxy(const Proxy&& p)
     : fName("move of "+p.fName), fType(kCopiedRecord),
       fLeaf(0), fTree(0),
-      fBase(kDummyBase), fOffset(-1),
+      fBase(kDummyBaseUninit), fOffset(-1),
       fLeafInfo(0), fBranch(0), fTTF(0), fEntry(-1), fSubIdx(-1)
   {
     // Ensure that the value is evaluated and baked in in the parent object, so
