@@ -188,8 +188,6 @@ namespace caf
   {
   }
 
-  const long kDummyBase = -1;
-  
   //----------------------------------------------------------------------
   template<class T> Proxy<T>::Proxy(const Proxy<T>& p)
     : fName("copy of "+p.fName), fType(kCopiedRecord),
