@@ -54,7 +54,7 @@ def full_name(type):
 
 def members(klass):
     # Only accept direct members. Sort to keep .cxx and .h consistent
-    return sorted([v for v in klass.variables(allow_empty = True) if v.parent == klass])
+    return sorted([v for v in klass.variables(allow_empty = True) if v.parent == klass and not v.type_qualifiers.has_static])
 
 
 def base_class(klass):
