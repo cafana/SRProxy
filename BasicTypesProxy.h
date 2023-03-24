@@ -13,6 +13,49 @@ class TLeaf;
 class TTreeFormula;
 class TTree;
 
+
+/// this stuff is used to only convert "old-style" enums
+/// to their underlying types further below.
+/// it's based on how std::is_scoped_enum will work in C++23
+/// (some of it borrowed from https://stackoverflow.com/a/70961043)
+namespace helpers
+{
+  /// The base type that handles anything that is NOT an enum
+  /// (so it inherits from std::false_type)
+  template<typename T, bool B = std::is_enum_v<T>>
+  struct is_scoped_enum : std::false_type
+  {
+  };
+
+  /// Specialization of the template when std::is_enum_v<T> is true
+  template<typename T>
+  struct is_scoped_enum<T, true>
+      : std::integral_constant<
+          bool, !std::is_convertible_v<T, std::underlying_type_t<T>>>
+  {};
+
+  /// Base type that "converts" a type back to itself
+  /// so long as it's not an enum type
+  template <typename T, bool B = std::is_enum_v<T>>
+  struct underlying_type
+  {
+    using type = T;
+  };
+
+  /// Specialization for when a type *is* an enum;
+  /// then its 'type' member is the underlying type
+  template <typename T>
+  struct underlying_type<T, true>
+  {
+    using type = std::underlying_type_t<T>;
+  };
+
+  /// Shortcut so you can write `helpers::underlying_type_t<T>` rather than `helpers::underlying_type<T>::type`
+  template <typename T>
+  using underlying_type_t = typename underlying_type<T>::type;
+
+}
+
 namespace caf
 {
   /// this constant is passed by reference into the various Proxy constructors.
