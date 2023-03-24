@@ -391,7 +391,9 @@ namespace caf
   }
 
   //----------------------------------------------------------------------
-  template<class T> Proxy<T>& Proxy<T>::operator+=(T x)
+  template<class T>
+  template<class U, class>
+  Proxy<T>& Proxy<T>::operator+=(T x)
   {
     if constexpr(!std::is_same_v<T, bool>){
       // Do it this way to re-use the systematics logic in operator=
@@ -408,7 +410,9 @@ namespace caf
   }
 
   //----------------------------------------------------------------------
-  template<class T> Proxy<T>& Proxy<T>::operator-=(T x)
+  template<class T>
+  template<class U, class>
+  Proxy<T>& Proxy<T>::operator-=(T x)
   {
     if constexpr(std::is_same_v<T, std::string>){
       std::cout << "Proxy<std::string>::operator-=() is meaningless" << std::endl;
@@ -429,7 +433,9 @@ namespace caf
   }
 
   //----------------------------------------------------------------------
-  template<class T> Proxy<T>& Proxy<T>::operator*=(T x)
+  template<class T>
+  template<class U, class>
+  Proxy<T>& Proxy<T>::operator*=(T x)
   {
     if constexpr(std::is_same_v<T, std::string>){
       std::cout << "Proxy<std::string>::operator*=() is meaningless" << std::endl;

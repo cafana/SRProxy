@@ -122,8 +122,14 @@ namespace caf
 
     // In practice these are the only operations that systematic shifts use
     Proxy<T>& operator=(T x);
+
+    template <typename U = T, typename = typename std::enable_if_t<!std::is_enum_v<U>>>
     Proxy<T>& operator+=(T x);
+
+    template <typename U = T, typename = typename std::enable_if_t<!std::is_enum_v<U>>>
     Proxy<T>& operator-=(T x);
+
+    template <typename U = T, typename = typename std::enable_if_t<!std::is_enum_v<U>>>
     Proxy<T>& operator*=(T x);
 
     std::string Name() const {return fName;}
