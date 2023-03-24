@@ -146,8 +146,10 @@ namespace caf
     void SetShifted();
 
     // The type to fetch from the TLeaf - get template errors inside of ROOT
-    // for enums.
-    typedef typename std::conditional_t<std::is_enum_v<T>, int, T> U;
+    // for enums.  (but not *scoped* enums?)
+    typedef typename std::conditional_t< std::is_enum_v<T> && ! helpers::is_scoped_enum<T>::value,
+                                         int,
+                                         T> U;
 
     // Shared
     std::string fName;
