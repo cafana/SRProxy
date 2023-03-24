@@ -251,7 +251,7 @@ namespace caf
   //----------------------------------------------------------------------
   template<class T> void GetTypedValueWrapper(TLeaf* leaf, T& x, int subidx)
   {
-    x = leaf->GetTypedValue<T>(subidx);
+    x = static_cast<T>(leaf->GetTypedValue<helpers::underlying_type_t<T>>(subidx));
   }
 
   //----------------------------------------------------------------------
