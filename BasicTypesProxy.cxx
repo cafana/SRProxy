@@ -459,9 +459,17 @@ namespace caf
   //----------------------------------------------------------------------
   template<class T> void Proxy<T>::CheckEquals(const T& x) const
   {
-    if(!AreEqual(GetValue(), x)){
-      std::cout << fName << " differs: "
-                << GetValue() << " vs " << x << std::endl;
+    if(!AreEqual(GetValue(), x))
+    {
+      std::cout << fName << " differs: ";
+      if constexpr (std::is_enum_v<T>)
+      {
+        using V = std::underlying_type_t<T>;
+        std::cout << static_cast<V>(GetValue())<< " vs " << static_cast<V>(x);
+      }
+      else
+        std::cout << GetValue() << " vs " << x;
+      std::cout << std::endl;
     }
   }
 
