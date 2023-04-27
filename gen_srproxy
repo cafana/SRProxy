@@ -354,6 +354,8 @@ def recurse(klass):
             recurse(vector_contents(v.decl_type))
         elif pygccxml.declarations.is_array(v.decl_type):
             recurse(array_contents(v.decl_type))
+        elif pygccxml.declarations.is_pointer(v.decl_type):
+            recurse(pygccxml.declarations.remove_pointer(pygccxml.declarations.remove_const(v.decl_type.base)).declaration)
         elif pygccxml.declarations.is_class(v.decl_type):
             recurse(v.decl_type.declaration)
 
