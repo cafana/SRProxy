@@ -74,7 +74,6 @@ ACTION=SETUP
 
   setupRequired(castxml v0_4_2)
   setupRequired(pygccxml v2_2_1b -q p3913)
-
 EOF
 
 echo ${dest}.version
