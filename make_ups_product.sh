@@ -61,12 +61,25 @@ ACTION=SETUP
 
   setupRequired(castxml v0_4_2)
   setupRequired(pygccxml v2_1_0c -q p392)
+
+FLAVOR=ANY
+QUALIFIERS=py3913
+
+ACTION=SETUP
+  setupEnv()
+  proddir()
+  EnvSet(${prodname_upper}_VERSION, \${UPS_PROD_VERSION} )
+  EnvSet(${prodname_upper}_INC, \${UPS_PROD_DIR}/include )
+  pathPrepend(PATH, \${UPS_PROD_DIR}/bin )
+
+  setupRequired(castxml v0_4_2)
+  setupRequired(pygccxml v2_2_1b -q p3913)
 EOF
 
 echo ${dest}.version
 mkdir ${dest}.version || exit 1
 
-for qual in py2 py3
+for qual in py2 py3 py3913
 do
 cat > ${dest}.version/NULL_$qual <<EOF
 FILE = version
@@ -82,4 +95,4 @@ EOF
 done
 
 echo You can set up this product with:
-echo "setup $prodname_lower $version -z `pwd`:\$PRODUCTS -q py2/py3"
+echo "setup $prodname_lower $version -z `pwd`:\$PRODUCTS -q py2/py3/py3913"
