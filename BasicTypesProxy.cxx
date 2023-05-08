@@ -188,7 +188,7 @@ namespace caf
   {
   }
 
-  const int kDummyBaseUninit = -1;
+  const long kDummyBaseUninit = -1;
 
   //----------------------------------------------------------------------
   template<class T> Proxy<T>::Proxy(const Proxy<T>& p)
