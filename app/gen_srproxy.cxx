@@ -371,6 +371,8 @@ void EmitClass(std::string classname, fmt::ostream &out_hdr,
             mname)) { // Don't re-declare members of the base class
       continue;
     }
+    
+    //Check if the data member is static and skip if it is
 
     std::string mptype = fmt::format(
         gen_flat ? "flat::Flat<{}>" : "caf::Proxy<{}>", GetTypeName(dm));

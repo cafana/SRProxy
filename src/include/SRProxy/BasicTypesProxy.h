@@ -51,6 +51,8 @@ template <class T> class Proxy;
 
 class Restorer;
 
+inline const long kDummyBase = 0;
+
 template <class T> class Proxy {
 public:
   static_assert(std::is_arithmetic<T>::value || std::is_enum<T>::value ||
@@ -59,8 +61,8 @@ public:
 
   friend class Restorer;
 
-  Proxy(TTree *tr, const std::string &name, long base, int offset);
-  Proxy(TTree *tr, const std::string &name) : Proxy(tr, name, 0, 0) {}
+  Proxy(TTree *tr, const std::string &name, const long &base, int offset);
+  Proxy(TTree *tr, const std::string &name) : Proxy(tr, name, kDummyBase, 0) {}
 
   // Need to be copyable because Vars return us directly
   Proxy(const Proxy &);
@@ -128,7 +130,7 @@ public:
 
 protected:
   ArrayVectorProxyBase(TTree *tr, const std::string &name,
-                       bool isNestedContainer, long base, int offset);
+                       bool isNestedContainer, const long &base, int offset);
 
   virtual ~ArrayVectorProxyBase();
 
@@ -166,7 +168,7 @@ public:
 
 protected:
   VectorProxyBase(TTree *tr, const std::string &name, bool isNestedContainer,
-                  long base, int offset);
+                  const long &base, int offset);
 
   std::string LengthField() const;
   /// Helper for LengthField()
@@ -178,11 +180,11 @@ protected:
 
 template <class T> class Proxy<std::vector<T>> : public VectorProxyBase {
 public:
-  Proxy(TTree *tr, const std::string &name, long base, int offset)
+  Proxy(TTree *tr, const std::string &name, const long &base, int offset)
       : VectorProxyBase(tr, name, is_vec<T>::value || std::is_array<T>::value,
                         base, offset) {}
 
-  Proxy(TTree *tr, const std::string &name) : Proxy(0, tr, name, 0, 0) {}
+  Proxy(TTree *tr, const std::string &name) : Proxy(0, tr, name, kDummyBase, 0) {}
 
   ~Proxy() {
     for (Proxy<T> *e : fElems)
@@ -278,14 +280,14 @@ bool operator<(const Proxy<std::vector<T>> &a, const std::vector<T> &b) {
 template <class T, unsigned int N>
 class Proxy<T[N]> : public ArrayVectorProxyBase {
 public:
-  Proxy(TTree *tr, const std::string &name, long base, int offset)
+  Proxy(TTree *tr, const std::string &name, const long &base, int offset)
       : ArrayVectorProxyBase(tr, name,
                              is_vec<T>::value || std::is_array<T>::value, base,
                              offset) {
     fElems.fill(0); // ensure initialized to null
   }
 
-  Proxy(TTree *tr, const std::string &name) : Proxy(tr, name, 0, 0) {}
+  Proxy(TTree *tr, const std::string &name) : Proxy(tr, name, kDummyBase, 0) {}
 
   ~Proxy() {
     for (Proxy<T> *e : fElems)

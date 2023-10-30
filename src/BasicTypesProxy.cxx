@@ -11,8 +11,8 @@
 #include <iostream>
 
 using namespace std::string_literals;
-using std::isnan;
 using std::isinf;
+using std::isnan;
 
 namespace {
 /// Helper for CheckEquals
@@ -32,6 +32,7 @@ std::enable_if_t<!std::is_floating_point<T>::value, bool> AreEqual(const T &x,
 namespace caf {
 std::vector<Restorer *> SRProxySystController::fRestorers;
 long long SRProxySystController::fGeneration = 0;
+const long kDummyBaseUninit = -1;
 
 std::set<std::string> SRBranchRegistry::fgBranches;
 
@@ -104,7 +105,8 @@ int NSubscripts(const std::string &name) {
 
 //----------------------------------------------------------------------
 template <class T>
-Proxy<T>::Proxy(TTree *tr, const std::string &name, long base, int offset)
+Proxy<T>::Proxy(TTree *tr, const std::string &name, const long &base,
+                int offset)
     : fName(name), fType(GetCAFType(tr)), fLeaf(0), fTree(tr), fBase(base),
       fOffset(offset), fLeafInfo(0), fBranch(0), fTTF(0), fEntry(-1),
       fSubIdx(0) {}
@@ -113,8 +115,8 @@ Proxy<T>::Proxy(TTree *tr, const std::string &name, long base, int offset)
 template <class T>
 Proxy<T>::Proxy(const Proxy<T> &p)
     : fName("copy of " + p.fName), fType(kCopiedRecord), fLeaf(0), fTree(0),
-      fBase(-1), fOffset(-1), fLeafInfo(0), fBranch(0), fTTF(0), fEntry(-1),
-      fSubIdx(-1) {
+      fBase(kDummyBaseUninit), fOffset(-1), fLeafInfo(0), fBranch(0), fTTF(0),
+      fEntry(-1), fSubIdx(-1) {
   // Ensure that the value is evaluated and baked in in the parent object, so
   // that fTTF et al aren't re-evaluated in every single copy.
   fVal = p.GetValue();
@@ -124,8 +126,8 @@ Proxy<T>::Proxy(const Proxy<T> &p)
 template <class T>
 Proxy<T>::Proxy(const Proxy &&p)
     : fName("move of " + p.fName), fType(kCopiedRecord), fLeaf(0), fTree(0),
-      fBase(-1), fOffset(-1), fLeafInfo(0), fBranch(0), fTTF(0), fEntry(-1),
-      fSubIdx(-1) {
+      fBase(kDummyBaseUninit), fOffset(-1), fLeafInfo(0), fBranch(0), fTTF(0),
+      fEntry(-1), fSubIdx(-1) {
   // Ensure that the value is evaluated and baked in in the parent object, so
   // that fTTF et al aren't re-evaluated in every single copy.
   fVal = p.GetValue();
@@ -412,8 +414,8 @@ template <class T> void Proxy<T>::CheckEquals(const T &x) const {
 
 //----------------------------------------------------------------------
 ArrayVectorProxyBase::ArrayVectorProxyBase(TTree *tr, const std::string &name,
-                                           bool isNestedContainer, long base,
-                                           int offset)
+                                           bool isNestedContainer,
+                                           const long &base, int offset)
     : fTree(tr), fName(name), fIsNestedContainer(isNestedContainer),
       fType(GetCAFType(tr)), fBase(base), fOffset(offset), fIdxP(0) {}
 
@@ -543,7 +545,8 @@ bool ArrayVectorProxyBase::TreeHasLeaf(TTree *tr,
 
 //----------------------------------------------------------------------
 VectorProxyBase::VectorProxyBase(TTree *tr, const std::string &name,
-                                 bool isNestedContainer, long base, int offset)
+                                 bool isNestedContainer, const long &base,
+                                 int offset)
     : ArrayVectorProxyBase(tr, name, isNestedContainer, base, offset),
       fSize(0) {}
 

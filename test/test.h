@@ -35,6 +35,8 @@ struct TestTarget : public TestBase {
   bool D;
   std::string E;
 
+  static const int F = 5;
+
   TestConstituentC aC[5];
 
   std::vector<TestConstituentA> vA;
