@@ -42,3 +42,8 @@ configure_file(version.in ${CMAKE_CURRENT_BINARY_DIR}/${UPS_BUILD_FLAVOR}_${SRPR
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/srproxy.table DESTINATION ups)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${UPS_BUILD_FLAVOR}_${SRPROXY_UPS_QUALIFIER} 
   DESTINATION ../../${SRPROXY_UPS_VERSION}.version)
+
+if(NOT EXISTS ${CMAKE_INSTALL_PREFIX}/../../../.upsfiles/dbconfig)
+  install(FILES ${CMAKE_CURRENT_BINARY_DIR}/dbconfig DESTINATION ../../../.upsfiles/)
+endif()
+
