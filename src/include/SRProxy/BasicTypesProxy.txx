@@ -254,7 +254,7 @@ template <class T> T Proxy<T>::GetValueFlat() const {
 
 template <class T> void EvalInstanceWrapper(TTreeFormula *ttf, T &x) {
   // TODO is this the safest way to cast?
-  x = ttf->EvalInstance<T>(0);
+  x = static_cast<T>(ttf->EvalInstance(0));
 }
 
 template <> void EvalInstanceWrapper(TTreeFormula *ttf, std::string &x) {
