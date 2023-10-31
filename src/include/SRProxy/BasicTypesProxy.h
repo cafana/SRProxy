@@ -9,7 +9,6 @@
 #include <vector>
 
 #include <cassert>
-#include <cmath> // for std::isinf and std::isnan
 
 class TFormLeafInfo;
 class TBranch;
@@ -437,28 +436,32 @@ protected:
 
 } // namespace caf
 
-template <class T> inline T min(const caf::Proxy<T> &a, T b) {
+namespace std {
+
+template <class T> T min(const caf::Proxy<T> &a, T b) {
   return std::min(a.GetValue(), b);
 }
 
-template <class T> inline T min(T a, const caf::Proxy<T> &b) {
+template <class T> T min(T a, const caf::Proxy<T> &b) {
   return std::min(a, b.GetValue());
 }
 
-template <class T> inline T max(const caf::Proxy<T> &a, T b) {
+template <class T> T max(const caf::Proxy<T> &a, T b) {
   return std::max(a.GetValue(), b);
 }
 
-template <class T> inline T max(T a, const caf::Proxy<T> &b) {
+template <class T> T max(T a, const caf::Proxy<T> &b) {
   return std::max(a, b.GetValue());
 }
 
 // We override these two so that the callers don't trigger the warning
 // printout from operator T.
-template <class T> inline bool isnan(const caf::Proxy<T> &x) {
+template <class T> bool isnan(const caf::Proxy<T> &x) {
   return std::isnan(x.GetValue());
 }
 
-template <class T> inline bool isinf(const caf::Proxy<T> &x) {
+template <class T> bool isinf(const caf::Proxy<T> &x) {
   return std::isinf(x.GetValue());
 }
+
+} // namespace std
