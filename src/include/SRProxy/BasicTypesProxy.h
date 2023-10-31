@@ -18,6 +18,11 @@ class TTreeFormula;
 class TTree;
 
 namespace caf {
+
+static const long kDummyBase = 0;
+
+std::string StripSubscripts(const std::string &s);
+
 class SRBranchRegistry {
 public:
   static void AddBranch(const std::string &b) { fgBranches.insert(b); }
@@ -52,8 +57,6 @@ template <class T> struct is_vec<std::vector<T>> {
 template <class T> class Proxy;
 
 class Restorer;
-
-inline const long kDummyBase = 0;
 
 template <class T> class Proxy {
 public:
@@ -114,7 +117,7 @@ protected:
   TTree *fTree;
 
   // Flat
-  long fBase;
+  const long &fBase;
   int fOffset;
 
   // Nested
@@ -154,9 +157,10 @@ protected:
   std::string fName;
   bool fIsNestedContainer;
   CAFType fType;
-  long fBase;
+  const long &fBase;
   int fOffset;
   mutable Proxy<long long> *fIdxP;
+  mutable long fIdx;
 };
 
 // Helper functions that don't need to be templated
@@ -255,10 +259,11 @@ protected:
       fElems.resize(i + 1);
 
     EnsureIdxP();
+    if (fIdxP)
+      fIdx = *fIdxP; // store into an actual value we can point to
 
     if (!fElems[i])
-      fElems[i] =
-          new Proxy<T>(fTree, Subscript(i), fIdxP ? fIdxP->GetValue() : 0l, i);
+      fElems[i] = new Proxy<T>(fTree, Subscript(i), fIdx, i);
   }
 
   mutable std::vector<Proxy<T> *> fElems;
@@ -302,10 +307,14 @@ public:
 
   const Proxy<T> &operator[](size_t i) const {
     EnsureElem(i);
+    if (fIdxP)
+      fIdx = *fIdxP;
     return *fElems[i];
   }
   Proxy<T> &operator[](size_t i) {
     EnsureElem(i);
+    if (fIdxP)
+      fIdx = *fIdxP;
     return *fElems[i];
   }
 
@@ -329,8 +338,7 @@ protected:
     if (fType != kFlat || TreeHasLeaf(fTree, IndexField())) {
       // Regular out-of-line array, handled the same as a vector.
       EnsureIdxP();
-      fElems[i] =
-          new Proxy<T>(fTree, Subscript(i), fIdxP ? fIdxP->GetValue() : 0, i);
+      fElems[i] = new Proxy<T>(fTree, Subscript(i), fIdx, i);
     } else {
       // No ..idx field implies this is an "inline" array where the elements
       // are in individual branches like foo.0.bar
@@ -429,28 +437,28 @@ protected:
 
 } // namespace caf
 
-template <class T> T min(const caf::Proxy<T> &a, T b) {
+template <class T> inline T min(const caf::Proxy<T> &a, T b) {
   return std::min(a.GetValue(), b);
 }
 
-template <class T> T min(T a, const caf::Proxy<T> &b) {
+template <class T> inline T min(T a, const caf::Proxy<T> &b) {
   return std::min(a, b.GetValue());
 }
 
-template <class T> T max(const caf::Proxy<T> &a, T b) {
+template <class T> inline T max(const caf::Proxy<T> &a, T b) {
   return std::max(a.GetValue(), b);
 }
 
-template <class T> T max(T a, const caf::Proxy<T> &b) {
+template <class T> inline T max(T a, const caf::Proxy<T> &b) {
   return std::max(a, b.GetValue());
 }
 
 // We override these two so that the callers don't trigger the warning
 // printout from operator T.
-template <class T> bool isnan(const caf::Proxy<T> &x) {
+template <class T> inline bool isnan(const caf::Proxy<T> &x) {
   return std::isnan(x.GetValue());
 }
 
-template <class T> bool isinf(const caf::Proxy<T> &x) {
+template <class T> inline bool isinf(const caf::Proxy<T> &x) {
   return std::isinf(x.GetValue());
 }
