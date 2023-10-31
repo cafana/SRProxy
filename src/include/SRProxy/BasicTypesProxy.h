@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Rtypes.h" // for Long64_t which cling sometimes sneaks in
+
 #include <array>
 #include <set>
 #include <string>
