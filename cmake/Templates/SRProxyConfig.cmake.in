@@ -1,0 +1,51 @@
+@PACKAGE_INIT@
+
+set(SRPROXY_VERSION @PROJECT_VERSION@)
+
+find_package(ROOT REQUIRED)
+
+set(SRPROXY_CXX_STANDARD @SRPROXY_CXX_STANDARD@)
+
+set(SRPROXY_FOUND TRUE)
+
+include(${CMAKE_CURRENT_LIST_DIR}/SRProxyTargets.cmake)
+if(NOT TARGET SRProxy::BasicTypes)
+  message(WARNING "Expected to find target SRProxy::BasicTypes in ${CMAKE_CURRENT_LIST_DIR}/SRProxyTargets.cmake")
+  set(SRPROXY_FOUND FALSE)
+  return()
+endif()
+
+get_filename_component(SRPROXY_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
+
+include(${SRPROXY_CMAKE_DIR}/GenSRProxy.cmake)
+
+find_path(SRPROXY_INCLUDE_DIR
+  NAMES SRProxy/BasicTypesProxy.h
+  PATHS ${SRPROXY_CMAKE_DIR}/../../../include
+)
+
+find_path(SRPROXY_LIB_DIR
+  NAMES libSRProxy_BasicTypes.so
+  PATHS ${SRPROXY_CMAKE_DIR}/../../
+)
+
+find_program(SRPROXY_GENSRPROXY_APP
+  NAMES bin/gen_srproxy
+  PATHS ${SRPROXY_CMAKE_DIR}/../../../
+)
+
+include(FindPackageHandleStandardArgs)
+find_package_handle_standard_args(SRProxy
+    REQUIRED_VARS 
+      SRPROXY_INCLUDE_DIR 
+      SRPROXY_LIB_DIR
+      SRPROXY_GENSRPROXY_APP
+    VERSION_VAR 
+      SRPROXY_VERSION
+)
+
+message(STATUS "Found SRProxy Version: ${SRPROXY_VERSION} in \"${SRPROXY_CMAKE_DIR}\"")
+message(STATUS "    SRPROXY_CXX_STANDARD: ${SRPROXY_CXX_STANDARD}")
+message(STATUS "    SRPROXY_INCLUDE_DIR: ${SRPROXY_INCLUDE_DIR}")
+message(STATUS "    SRPROXY_LIB_DIR: ${SRPROXY_LIB_DIR}")
+message(STATUS "    SRPROXY_GENSRPROXY_APP: ${SRPROXY_GENSRPROXY_APP}")
