@@ -15,6 +15,7 @@ target_include_directories(SRProxy_FlatTypes INTERFACE
 set_target_properties(SRProxy_FlatTypes PROPERTIES EXPORT_NAME SRProxy::FlatTypes)
 target_link_libraries(SRProxy_FlatTypes INTERFACE ROOT::TreePlayer ROOT::Tree ROOT::Core)
 
+add_library(SRProxy::FlatTypes ALIAS SRProxy_FlatTypes)
 
 install(TARGETS SRProxy_BasicTypes SRProxy_FlatTypes EXPORT SRProxyTargets DESTINATION lib)
 install(DIRECTORY include/SRProxy DESTINATION include)
