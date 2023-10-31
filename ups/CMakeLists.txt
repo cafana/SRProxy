@@ -44,6 +44,6 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${UPS_BUILD_FLAVOR}_${SRPROXY_UPS_QUAL
   DESTINATION ../../${SRPROXY_UPS_VERSION}.version)
 
 if(NOT EXISTS ${CMAKE_INSTALL_PREFIX}/../../../.upsfiles/dbconfig)
-  install(FILES ${CMAKE_CURRENT_BINARY_DIR}/dbconfig DESTINATION ../../../.upsfiles/)
+  install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/dbconfig DESTINATION ../../../.upsfiles/)
 endif()
 
