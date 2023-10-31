@@ -184,7 +184,8 @@ public:
       : VectorProxyBase(tr, name, is_vec<T>::value || std::is_array<T>::value,
                         base, offset) {}
 
-  Proxy(TTree *tr, const std::string &name) : Proxy(0, tr, name, kDummyBase, 0) {}
+  Proxy(TTree *tr, const std::string &name)
+      : Proxy(0, tr, name, kDummyBase, 0) {}
 
   ~Proxy() {
     for (Proxy<T> *e : fElems)

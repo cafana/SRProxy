@@ -28,7 +28,7 @@ std::string const hdr_body = R"(
 template<> class {1}{2}
 {{
 public:
-  Flat(TTree* tr, const std::string& prefix, const std::string& totsize, const IBranchPolicy* policy);
+  Flat(TTree *tr, const std::string &prefix, const std::string &totsize, const IBranchPolicy *policy);
 
   void Fill(const {0}& sr);
   void Clear();
@@ -53,7 +53,7 @@ std::string const cxx_prolog = R"(
 //{3} == FillBody
 //{4} == ClearBody
 std::string const cxx_body = R"(
-{0}::Flat(TTree* tr, const std::string& prefix, const std::string& totsize, const IBranchPolicy* policy) :
+{0}::Flat(TTree *tr, const std::string &prefix, const std::string &totsize, const IBranchPolicy *policy) :
 {1}
 {{
 }}
@@ -81,7 +81,8 @@ namespace flat
 //{0} == FlatBaseType
 std::string const base_init = "  {0}(tr, prefix, totsize, policy),\n";
 //{0} == MemberName
-std::string const member_init = "  {0}(tr, prefix+\".{0}\", totsize, policy),\n";
+std::string const member_init =
+    "  {0}(tr, prefix+\".{0}\", totsize, policy),\n";
 
 } // namespace flat
 
@@ -109,8 +110,8 @@ std::string const hdr_body = R"(
 template<> class {1}{2}
 {{
 public:
-  Proxy(TTree* tr, const std::string& name, const long &base, int offset);
-  Proxy(TTree* tr, const std::string& name) : Proxy(tr, name, kDummyBase, 0) {{}}
+  Proxy(TTree *tr, const std::string &name, const long &base, int offset);
+  Proxy(TTree *tr, const std::string &name) : Proxy(tr, name, kDummyBase, 0) {{}}
   Proxy(const Proxy&) = delete;
   Proxy(const Proxy&&) = delete;
   Proxy& operator=(const {0}& x);
@@ -130,7 +131,7 @@ std::string const cxx_prolog = R"(
 
 namespace
 {{
-  std::string Join(const std::string& a, const std::string& b)
+  std::string Join(const std::string &a, const std::string &b)
   {{
     if(a.empty()) return b;
     return a+"."+b;
@@ -144,7 +145,7 @@ namespace
 //{3} == AssignBody
 //{4} == CheckEqualsBody
 std::string const cxx_body = R"(
-{0}::Proxy(TTree* tr, const std::string& name, const long &base, int offset) :
+{0}::Proxy(TTree *tr, const std::string &name, const long &base, int offset) :
 {1}
 {{
 }}
@@ -174,11 +175,13 @@ namespace caf
 std::string const base_init = "  {0}(tr, name, base, offset),\n";
 
 //{0} == MemberName
-std::string const member_init = "  {0}(tr, Join(name, \"{0}\"), base, offset),\n";
+std::string const member_init =
+    "  {0}(tr, Join(name, \"{0}\"), base, offset),\n";
 
 } // namespace proxy
 
-std::string const disclaimer = R"(// This file was generated automatically, do not edit it manually
+std::string const disclaimer =
+    R"(// This file was generated automatically, do not edit it manually
 // Generation details:
 //   SRProxy Verion: {0}
 //   ROOT Version: {1}
