@@ -56,6 +56,7 @@ namespace caf
     public:
       /// note: this is NOT a copy constructor!  Specifies the object that's this one's parent.
       explicit Lineage(const Lineage * parent) : fParent(parent) {}
+      virtual ~Lineage() = default;
 
       /// \brief Search through the stored lineage to find ancestor of given type.  If multiple, returns only the closest one.
       /// \tparam T   Object type to look for (e.g.: SRProxy)
