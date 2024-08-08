@@ -62,7 +62,7 @@ namespace caf
       /// \tparam T   Object type to look for (e.g.: SRProxy)
       /// \return  Pointer to closest ancestor (fewest links separating them) of type T, or nullptr if none found
       template <typename T>
-      const T * Ancestor()
+      const T * Ancestor() const
       {
         const Lineage * candAnc = this;
         while ( (candAnc = candAnc->Parent()) )
