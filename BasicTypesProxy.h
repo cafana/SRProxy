@@ -279,7 +279,8 @@ namespace caf
       EnsureIdxP();
       if(fIdxP) fIdx = *fIdxP; // store into an actual value we can point to
 
-      if(!fElems[i]) fElems[i] = new Proxy<T>(fTree, Subscript(i), fIdx, i, nullptr);
+      // note that the contained elements should point to the vector's parent, not the vector
+      if(!fElems[i]) fElems[i] = new Proxy<T>(fTree, Subscript(i), fIdx, i, this->Parent());
     }
 
     mutable std::vector<Proxy<T>*> fElems;
