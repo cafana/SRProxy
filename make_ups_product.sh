@@ -1,12 +1,13 @@
 #!/bin/bash
 
-if [ $# != 1 ]
+if [ $# = 0 ] || [ $# -gt 2 ]
 then
-    echo Usage: make_ups_product.sh VERSION
+    echo Usage: make_ups_product.sh VERSION [UPS_DIR]
     exit 2
 fi
 
 version=$1
+[ -z "$2" ] && ups_dir="$PWD" || ups_dir="$2"
 
 prodname_lower=srproxy
 prodname_mixed=SRProxy
@@ -15,7 +16,7 @@ prodname_upper=SRPROXY
 INCS="BasicTypesProxy.h BasicTypesProxy.cxx FlatBasicTypes.h IBranchPolicy.h"
 BINS='gen_srproxy'
 
-dest=$prodname_lower/$version
+dest=$ups_dir/$prodname_lower/$version
 
 mkdir -p $dest || exit 1
 

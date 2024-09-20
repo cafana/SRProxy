@@ -180,8 +180,10 @@ namespace caf
   }
 
   //----------------------------------------------------------------------
-  template<class T> Proxy<T>::Proxy(TTree* tr, const std::string& name, const long& base, int offset)
-    : fName(name), fType(GetCAFType(tr)),
+  template<class T>
+  Proxy<T>::Proxy(TTree *tr, const std::string &name, const long &base, int offset, const Lineage *parent)
+    : Lineage(parent),
+      fName(name), fType(GetCAFType(tr)),
       fLeaf(0), fTree(tr),
       fBase(base), fOffset(offset),
       fLeafInfo(0), fBranch(0), fTTF(0), fEntry(-1), fSubIdx(0)
@@ -192,7 +194,7 @@ namespace caf
 
   //----------------------------------------------------------------------
   template<class T> Proxy<T>::Proxy(const Proxy<T>& p)
-    : fName("copy of "+p.fName), fType(kCopiedRecord),
+    : Lineage(&p), fName("copy of "+p.fName), fType(kCopiedRecord),
       fLeaf(0), fTree(0),
       fBase(kDummyBaseUninit), fOffset(-1),
       fLeafInfo(0), fBranch(0), fTTF(0), fEntry(-1), fSubIdx(-1)
@@ -204,7 +206,8 @@ namespace caf
 
   //----------------------------------------------------------------------
   template<class T> Proxy<T>::Proxy(const Proxy&& p)
-    : fName("move of "+p.fName), fType(kCopiedRecord),
+    : Lineage(std::move(p)),
+      fName("move of "+p.fName), fType(kCopiedRecord),
       fLeaf(0), fTree(0),
       fBase(kDummyBaseUninit), fOffset(-1),
       fLeafInfo(0), fBranch(0), fTTF(0), fEntry(-1), fSubIdx(-1)
@@ -463,8 +466,10 @@ namespace caf
   ArrayVectorProxyBase::ArrayVectorProxyBase(TTree* tr,
                                              const std::string& name,
                                              bool isNestedContainer,
-                                             const long& base, int offset)
-    : fTree(tr),
+                                             const long& base, int offset,
+                                             const Lineage * parent)
+    : Lineage(parent),
+      fTree(tr),
       fName(name), fIsNestedContainer(isNestedContainer),
       fType(GetCAFType(tr)),
       fBase(base), fOffset(offset),
@@ -486,7 +491,7 @@ namespace caf
     // Only used for flat trees. For single-tree, only needed for objects not
     // at top-level.
     if(fType == kFlat && NSubscripts(fName) > 0){
-      fIdxP = new Proxy<long long>(fTree, IndexField(), fBase, fOffset);
+      fIdxP = new Proxy<long long>(fTree, IndexField(), fBase, fOffset, nullptr);
     }
   }
 
@@ -607,8 +612,9 @@ namespace caf
   VectorProxyBase::VectorProxyBase(TTree* tr,
                                    const std::string& name,
                                    bool isNestedContainer,
-                                   const long& base, int offset)
-    : ArrayVectorProxyBase(tr, name, isNestedContainer, base, offset),
+                                   const long& base, int offset,
+                                   const Lineage * parent)
+    : ArrayVectorProxyBase(tr, name, isNestedContainer, base, offset, parent),
       fSize(0)
   {
   }
@@ -624,7 +630,7 @@ namespace caf
   {
     if(fSize) return;
 
-    fSize = new Proxy<int>(fTree, LengthField(), fBase, fOffset);
+    fSize = new Proxy<int>(fTree, LengthField(), fBase, fOffset, nullptr);
   }
 
   //----------------------------------------------------------------------

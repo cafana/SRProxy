@@ -137,7 +137,7 @@ proxy_hdr_body = '''
 template<> class {PTYPE}{BASE}
 {{
 public:
-  Proxy(TTree* tr, const std::string& name, const long& base, int offset);
+  Proxy(TTree* tr, const std::string& name, const long& base, int offset, const Lineage * parent = nullptr);
   Proxy(TTree* tr, const std::string& name) : Proxy(tr, name, kDummyBase, 0) {{}}
   Proxy(const Proxy&) = delete;
   Proxy(const Proxy&&) = delete;
@@ -197,7 +197,7 @@ def cxx_prolog():
 
 # -----------------------------------------------------------------------------
 proxy_cxx_body = '''
-{PTYPE}::Proxy(TTree* tr, const std::string& name, const long& base, int offset) :
+{PTYPE}::Proxy(TTree* tr, const std::string& name, const long& base, int offset, const Lineage * parent) :
 {INITS}
 {{
 }}
@@ -285,15 +285,17 @@ def emit(klass):
     base = base_class(klass)
     if base:
         pbtype = proxy_type(base)
-        proxy_inits += ['  {PBTYPE}(tr, name, base, offset)'.format(PBTYPE = pbtype)]
+        proxy_inits += ['  {PBTYPE}(tr, name, base, offset, parent)'.format(PBTYPE = pbtype)]
         flat_inits += ['  {PBTYPE}(tr, prefix, totsize, policy)'.format(PBTYPE = pbtype)]
         assign_body += ['  {PBTYPE}::operator=(sr);'.format(PBTYPE = pbtype)]
         checkequals_body += ['  {PBTYPE}::CheckEquals(sr);'.format(PBTYPE = pbtype)]
         fill_body += ['  {PBTYPE}::Fill(sr);'.format(PBTYPE = pbtype)]
         clear_body += ['  {PBTYPE}::Clear();'.format(PBTYPE = pbtype)]
+    else:
+        proxy_inits += ['  Lineage(parent)',]
 
     for v in members(klass):
-        proxy_inits += [ '  {NAME}(tr, Join(name, "{NAME}"), base, offset)'.format(NAME = v.name)]
+        proxy_inits += [ '  {NAME}(tr, Join(name, "{NAME}"), base, offset, this)'.format(NAME = v.name)]
         flat_inits += [ '  {NAME}(tr, prefix+".{NAME}", totsize, policy)'.format(NAME = v.name)]
 
         memlist += ['  {PTYPE} {NAME};'.format(PTYPE = proxy_type(v.decl_type), NAME = v.name)]
@@ -322,9 +324,13 @@ def emit(klass):
                                  PTYPE = proxy_type(klass),
                                  SHORTTYPE = friendly_name(klass)))
 
+    if base:
+        base = proxy_type(base)
+    elif not gFlat:
+        base = "caf::Lineage"
     fhdr.write(hdr_body().format(TYPE = full_name(klass),
                                  PTYPE = proxy_type(klass),
-                                 BASE = ' : public '+proxy_type(base) if base else '',
+                                 BASE = (' : public ' + base) if base else '',
                                  ADDONS = class_to_addons[klass.name] if klass.name in class_to_addons else '',
                                  MEMBERS = '\n'.join(memlist)))
 

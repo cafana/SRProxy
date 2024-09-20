@@ -50,15 +50,45 @@ namespace caf
 
   class Restorer;
 
-  template<class T> class Proxy
+  /// Base class for all proxy types, intended to help trace ancestry
+  class Lineage
+  {
+    public:
+      /// note: this is NOT a copy constructor!  Specifies the object that's this one's parent.
+      explicit Lineage(const Lineage * parent) : fParent(parent) {}
+      virtual ~Lineage() = default;
+
+      /// \brief Search through the stored lineage to find ancestor of given type.  If multiple, returns only the closest one.
+      /// \tparam T   Object type to look for (e.g.: SRProxy)
+      /// \return  Pointer to closest ancestor (fewest links separating them) of type T, or nullptr if none found
+      template <typename T>
+      const T * Ancestor() const
+      {
+        const Lineage * candAnc = this;
+        while ( (candAnc = candAnc->Parent()) )
+        {
+          if (auto ret = dynamic_cast<const T*>(candAnc))
+            return ret;
+        }
+        return nullptr;
+      }
+
+      const Lineage * Parent() const { return fParent; }
+
+    private:
+      const Lineage * fParent = nullptr;
+  };
+
+  template<class T> class Proxy : public Lineage
   {
   public:
     static_assert(std::is_arithmetic_v<T> || std::is_enum_v<T> || std::is_same_v<T, std::string>, "Invalid type for basic type Proxy");
 
     friend class Restorer;
 
-    Proxy(TTree* tr, const std::string& name, const long& base, int offset);
-    Proxy(TTree* tr, const std::string& name) : Proxy(tr, name, kDummyBase, 0) {}
+    Proxy(TTree *tr, const std::string &name, const long &base, int offset, const Lineage * parent = nullptr);
+    Proxy(TTree* tr, const std::string& name) : Proxy(tr, name, kDummyBase, 0, nullptr)
+    {}
 
     // Need to be copyable because Vars return us directly
     Proxy(const Proxy&);
@@ -120,7 +150,7 @@ namespace caf
   };
 
   // Helper functions that don't need to be templated
-  class ArrayVectorProxyBase
+  class ArrayVectorProxyBase : public Lineage
   {
   public:
     std::string Name() const {return fName;}
@@ -129,7 +159,8 @@ namespace caf
     ArrayVectorProxyBase(TTree* tr,
                          const std::string& name,
                          bool isNestedContainer,
-                         const long& base, int offset);
+                         const long& base, int offset,
+                         const Lineage * parent = nullptr);
 
     virtual ~ArrayVectorProxyBase();
 
@@ -168,7 +199,8 @@ namespace caf
     void resize(size_t i);
 
   protected:
-    VectorProxyBase(TTree* tr, const std::string& name, bool isNestedContainer, const long& base, int offset);
+    VectorProxyBase(TTree* tr, const std::string& name, bool isNestedContainer, const long& base, int offset,
+                    const Lineage * parent = nullptr);
 
     std::string LengthField() const;
     /// Helper for LengthField()
@@ -181,12 +213,13 @@ namespace caf
   template<class T> class Proxy<std::vector<T>>: public VectorProxyBase
   {
   public:
-    Proxy(TTree* tr, const std::string& name, const long& base, int offset)
-      : VectorProxyBase(tr, name, is_vec<T>::value || std::is_array_v<T>, base, offset)
+    Proxy(TTree *tr, const std::string &name, const long &base, int offset, const Lineage *parent)
+      : VectorProxyBase(tr, name, is_vec<T>::value || std::is_array_v<T>, base, offset, parent)
     {
     }
 
-    Proxy(TTree* tr, const std::string& name) : Proxy(tr, name, kDummyBase, 0) {}
+    Proxy(TTree* tr, const std::string& name) : Proxy(tr, name, kDummyBase, 0, nullptr)
+    {}
 
     ~Proxy(){for(Proxy<T>* e: fElems) delete e;}
 
@@ -246,7 +279,8 @@ namespace caf
       EnsureIdxP();
       if(fIdxP) fIdx = *fIdxP; // store into an actual value we can point to
 
-      if(!fElems[i]) fElems[i] = new Proxy<T>(fTree, Subscript(i), fIdx, i);
+      // note that the contained elements should point to the vector's parent, not the vector
+      if(!fElems[i]) fElems[i] = new Proxy<T>(fTree, Subscript(i), fIdx, i, this->Parent());
     }
 
     mutable std::vector<Proxy<T>*> fElems;
@@ -271,13 +305,14 @@ namespace caf
   template<class T, unsigned int N> class Proxy<T[N]> : public ArrayVectorProxyBase
   {
   public:
-    Proxy(TTree* tr, const std::string& name, const long& base, int offset)
+    Proxy(TTree *tr, const std::string &name, const long &base, int offset, const Lineage *parent)
       : ArrayVectorProxyBase(tr, name, is_vec<T>::value || std::is_array_v<T>, base, offset)
     {
       fElems.fill(0); // ensure initialized to null
     }
 
-    Proxy(TTree* tr, const std::string& name) : Proxy(tr, name, kDummyBase, 0) {}
+    Proxy(TTree* tr, const std::string& name) : Proxy(tr, name, kDummyBase, 0, nullptr)
+    {}
 
     ~Proxy()
     {
@@ -320,13 +355,13 @@ namespace caf
       if(fType != kFlat || TreeHasLeaf(fTree, IndexField())){
         // Regular out-of-line array, handled the same as a vector.
         EnsureIdxP();
-        fElems[i] = new Proxy<T>(fTree, Subscript(i), fIdx, i);
+        fElems[i] = new Proxy<T>(fTree, Subscript(i), fIdx, i, nullptr);
       }
       else{
         // No ..idx field implies this is an "inline" array where the elements
         // are in individual branches like foo.0.bar
         const std::string dotname = fName+"."+std::to_string(i);
-        fElems[i] = new Proxy<T>(fTree, dotname, fBase, fOffset);
+        fElems[i] = new Proxy<T>(fTree, dotname, fBase, fOffset, nullptr);
       }
     }
 
