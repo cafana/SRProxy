@@ -87,8 +87,7 @@ ACTION=SETUP
   pathPrepend(PATH, \${UPS_PROD_DIR}/bin )
 
   setupRequired(castxml v0_5_1)
-  setupRequired(pygccxml v2_2_1b -q p3915)
-
+  setupRequired(pygccxml v2_2_1b -q p3915)  
 EOF
 
 echo ${dest}.version
@@ -110,4 +109,4 @@ EOF
 done
 
 echo You can set up this product with:
-echo "setup $prodname_lower $version -z `pwd`:\$PRODUCTS -q py2/py3/py3913"
+echo "setup $prodname_lower $version -z `pwd`:\$PRODUCTS -q py2/py3/py3913/py3915"
