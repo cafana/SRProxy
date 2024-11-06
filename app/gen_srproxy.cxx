@@ -612,6 +612,11 @@ void ParseOpts(int argc, char const *argv[]) {
 int main(int argc, char const *argv[]) {
   ParseOpts(argc, argv);
 
+  // these "helpful" behaviors of TCling
+  // are anything but
+  gInterpreter->SetClassAutoloading(false);
+  gInterpreter->SetClassAutoparsing(false);
+
   for (auto const &ip : includes) {
     if (verbose) {
       fmt::print("Adding include path: \"{}\"\n", ip);
