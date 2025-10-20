@@ -64,19 +64,19 @@ if(SRProxy_TEST_PYTHON_BINDINGS)
 
   FetchContent_MakeAvailable(pybind11)
 
-  pybind11_add_module(pytestproxy SHARED TestTargetproxy.pybind.cxx)
+  pybind11_add_module(pyTestTargetproxy SHARED TestTargetproxy.pybind.cxx)
 
-  target_include_directories(pytestproxy
+  target_include_directories(pyTestTargetproxy
     PRIVATE
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
       $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/include>
       )
 
-  target_link_libraries(pytestproxy
+  target_link_libraries(pyTestTargetproxy
     PRIVATE
       test_proxy)
 
-  install(TARGETS pytestproxy
+  install(TARGETS pyTestTargetproxy
       LIBRARY DESTINATION ${SRProxy_PYTHONPATH})
 
 endif()

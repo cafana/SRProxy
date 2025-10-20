@@ -34,6 +34,10 @@ bool IsSTLVector(TDataMember &dm) {
   return (dm.IsSTLContainer() == TDictionary::kVector);
 }
 
+bool IsStaticDatamember(TDataMember &dm, TClass *cls) {
+  return (dm.GetOffset() > cls->GetClassSize());
+}
+
 bool IsSTLVector(TClass *cls) {
   return (cls->GetCollectionType() == ROOT::kSTLvector);
 }
@@ -418,7 +422,9 @@ void EmitClass(std::string classname, fmt::ostream &out_hdr,
     }
 
     // Check if the data member is static and skip if it is
-
+    if (IsStaticDatamember(dm, cls)) {
+      continue;
+    }
     std::string mptype = fmt::format(
         gen_flat ? "flat::Flat<{}>" : "caf::Proxy<{}>", GetTypeName(dm));
 
@@ -817,14 +823,16 @@ int main(int argc, char const *argv[]) {
     out_pyb = std::make_unique<std::ofstream>(output_dir + output_file +
                                               ".pybind.cxx");
 
-    (*out_pyb) << fmt::format(R"(#include "{0}.h"
+    (*out_pyb) << fmt::format(R"(#include "{0}"
+#include "{1}.h"
 
 #include "pybind11/pybind11.h"
 
 namespace py = pybind11;
-void py{1}(py::module &m) {{
+
+PYBIND11_MODULE(py{1}, m) {{
 )",
-                              output_file, GetClassName(target_class));
+                              input_header, output_file);
   }
 
   //   SRProxy Verion: {0}
