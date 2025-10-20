@@ -1,6 +1,6 @@
 
 # GenSRProxy(
-# [FLAT] 
+# [FLAT]
 # [VERBOSE]
 # [VVERBOSE]
 # [HEADER <arg>]
@@ -14,14 +14,16 @@
 # [DEPENDENCIES <arg1> [<arg2> ...]]
 # [EXTRAS <arg1> [<arg2> ...]]
 # [DEFINITIONS <arg1> [<arg2> ...]]
+# [EMIT_PYTHON_BINDINGS]
 #)
+
 function(GenSRProxy)
 
-  set(options FLAT VERBOSE VVERBOSE)
+  set(options FLAT VERBOSE VVERBOSE EMIT_PYTHON_BINDINGS)
   set(oneValueArgs HEADER OUTPUT_NAME OUTPUT_PATH TARGETNAME PROLOG EPILOG EPILOG_FWD)
   set(multiValueArgs INCLUDE_DIRS DEPENDENCIES EXTRAS DEFINITIONS)
-  cmake_parse_arguments(OPTS 
-                      "${options}" 
+  cmake_parse_arguments(OPTS
+                      "${options}"
                       "${oneValueArgs}"
                       "${multiValueArgs}" ${ARGN})
 
@@ -51,6 +53,13 @@ function(GenSRProxy)
   SET(VVERBOSE_ARG)
   if(OPTS_VVERBOSE)
     SET(VVERBOSE_ARG --vverbose)
+  endif()
+
+  SET(PYBIND_ARG)
+  SET(PYBIND_OUTPUT)
+  if(OPTS_EMIT_PYTHON_BINDINGS)
+    SET(PYBIND_ARG --emit-python-bindings)
+    SET(PYBIND_OUTPUT ${OPTS_OUTPUT_NAME}.pybind.cxx)
   endif()
 
   SET(DEPENDENCIES ${HEADER})
@@ -101,11 +110,11 @@ function(GenSRProxy)
 
   if(TARGET gen_srproxy)
     add_custom_command(
-      OUTPUT ${OPTS_OUTPUT_NAME}.cxx ${OPTS_OUTPUT_NAME}.h FwdDeclare.h
+      OUTPUT ${OPTS_OUTPUT_NAME}.cxx ${OPTS_OUTPUT_NAME}.h FwdDeclare.h ${PYBIND_OUTPUT}
       WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
       COMMAND $<TARGET_FILE:gen_srproxy>
-           ${FLAT_ARG} 
-           -i ${OPTS_HEADER} 
+           ${FLAT_ARG}
+           -i ${OPTS_HEADER}
            -o ${OPTS_OUTPUT_NAME}
            ${TARGET_ARG}
            ${INCLUDE_ARG}
@@ -117,6 +126,7 @@ function(GenSRProxy)
            ${EXTRAS_ARGS}
            ${VERBOSE_ARG}
            ${VVERBOSE_ARG}
+           ${PYBIND_ARG}
            -od ${CMAKE_CURRENT_BINARY_DIR}
       DEPENDS gen_srproxy ${DEPENDENCIES})
   else()
@@ -125,11 +135,11 @@ function(GenSRProxy)
     endif()
 
     add_custom_command(
-      OUTPUT ${OPTS_OUTPUT_NAME}.cxx ${OPTS_OUTPUT_NAME}.h FwdDeclare.h
+      OUTPUT ${OPTS_OUTPUT_NAME}.cxx ${OPTS_OUTPUT_NAME}.h FwdDeclare.h ${PYBIND_OUTPUT}
       WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
       COMMAND ${SRProxy_GENSRProxy_APP}
-           ${FLAT_ARG} 
-           -i ${OPTS_HEADER} 
+           ${FLAT_ARG}
+           -i ${OPTS_HEADER}
            -o ${OPTS_OUTPUT_NAME}
            ${TARGET_ARG}
            ${INCLUDE_ARG}
@@ -141,6 +151,7 @@ function(GenSRProxy)
            ${EXTRAS_ARGS}
            ${VERBOSE_ARG}
            ${VVERBOSE_ARG}
+           ${PYBIND_ARG}
            -od ${CMAKE_CURRENT_BINARY_DIR}
       DEPENDS ${DEPENDENCIES})
   endif()

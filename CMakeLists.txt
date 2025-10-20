@@ -12,7 +12,8 @@ set(CMAKE_CXX_STANDARD ${SRProxy_CXX_STANDARD})
 find_program(CMAKE_C_COMPILER NAMES $ENV{CC} gcc PATHS ENV PATH NO_DEFAULT_PATH)
 find_program(CMAKE_CXX_COMPILER NAMES $ENV{CXX} g++ PATHS ENV PATH NO_DEFAULT_PATH)
 
-option(TESTS_ENABLED "Whether to enable tests, OFF by default" OFF)
+option(SRProxy_TESTS_ENABLED "Whether to enable tests, OFF by default" OFF)
+option(SRProxy_TEST_PYTHON_BINDINGS "Whether to enable test of python bindings, Off by default" OFF)
 
 LIST(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/cmake/Modules)
 
@@ -31,7 +32,7 @@ include(GenSRProxy)
 add_subdirectory(app)
 add_subdirectory(src)
 
-if(TESTS_ENABLED)
+if(SRProxy_TESTS_ENABLED)
   add_subdirectory(test)
 endif()
 
@@ -57,7 +58,7 @@ install(FILES "${PROJECT_BINARY_DIR}/SRProxyConfigVersion.cmake"
               "${PROJECT_SOURCE_DIR}/cmake/Modules/GenSRProxy.cmake"
         DESTINATION lib/cmake/SRProxy)
 
-configure_file(${CMAKE_CURRENT_LIST_DIR}/cmake/Templates/setup.SRProxy.sh.in 
+configure_file(${CMAKE_CURRENT_LIST_DIR}/cmake/Templates/setup.SRProxy.sh.in
   ${PROJECT_BINARY_DIR}/setup.SRProxy.sh @ONLY)
 install(PROGRAMS ${PROJECT_BINARY_DIR}/setup.SRProxy.sh DESTINATION bin)
 

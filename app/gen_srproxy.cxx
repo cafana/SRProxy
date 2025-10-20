@@ -22,6 +22,7 @@
 
 int verbose = 0;
 bool order_alphabetically = false;
+bool emit_python = false;
 
 std::string GetVectorValueTypeName(std::string classname) {
   auto openb = classname.find_first_of('<');
@@ -116,6 +117,21 @@ std::string GetShortProxyType(std::string classname) {
 }
 std::string GetShortFlatType(std::string classname) {
   return std::string("Flat") + GetClassName(classname);
+}
+
+std::string GetPythonClassName(std::string classname) {
+  for (auto &c : classname) {
+    if ((c == ':')) {
+      c = '_';
+    }
+    if ((c == '<')) {
+      c = 'L';
+    }
+    if ((c == '>')) {
+      c = 'R';
+    }
+  }
+  return classname;
 }
 
 void WalkClass(TClass *cls, std::vector<std::string> &Declarations,
@@ -308,10 +324,15 @@ std::string CutSStream(std::stringstream const &ss, size_t n) {
 }
 
 void EmitClass(std::string classname, fmt::ostream &out_hdr,
-               fmt::ostream &out_impl, fmt::ostream &out_fwd) {
+               fmt::ostream &out_impl, fmt::ostream &out_fwd,
+               std::ofstream &out_pyb,
+               std::set<std::string> &py_emitted_vector_types) {
 
   std::stringstream inits;
   std::stringstream memberlist;
+
+  std::stringstream memberlist_pyimpl;
+  std::stringstream basicmemberlist_pyimpl;
 
   std::stringstream assign_body;
   std::stringstream checkequals_body;
@@ -361,6 +382,7 @@ void EmitClass(std::string classname, fmt::ostream &out_hdr,
   }
 
   std::vector<TDataMember *> DataMembers;
+  std::vector<std::string> vector_types;
 
   for (auto dm_to : *cls->GetListOfAllPublicDataMembers()) {
 
@@ -405,6 +427,23 @@ void EmitClass(std::string classname, fmt::ostream &out_hdr,
 
     memberlist << fmt::format(tmplt::member_list, mptype, mname);
 
+    if (emit_python) {
+      if (!IsStandardTypeOrEnum(dm) || dm.GetArrayDim()) {
+        if (IsSTLVector(dm)) {
+          vector_types.push_back(GetTypeName(dm));
+        }
+        memberlist_pyimpl << fmt::format(R"--(
+    .def_readonly("{0}",&caf::Proxy<{1}>::{0}) // {2})--",
+                                         mname, classname, GetTypeName(dm));
+
+      } else {
+        basicmemberlist_pyimpl << fmt::format(R"(if(attr == "{0}"){{ // {1}
+        return py::cast(prx.{0}.GetValue());
+      }})",
+                                              mname, GetTypeName(dm));
+      }
+    }
+
     assign_body << fmt::format(tmplt::assign_member_body, mname);
     checkequals_body << fmt::format(tmplt::checkequals_member_body, mname);
 
@@ -447,6 +486,40 @@ void EmitClass(std::string classname, fmt::ostream &out_hdr,
                  CutSStream(inits, 2), type,
                  CutSStream(gen_flat ? fill_body : assign_body, 1),
                  CutSStream(gen_flat ? clear_body : checkequals_body, 1));
+
+  if (emit_python) {
+
+    for (auto const &vector_type : vector_types) {
+      if (!py_emitted_vector_types.count(vector_type)) {
+        out_pyb << fmt::format(R"--(
+  py::class_<caf::Proxy<{0}>>(m, "{1}")
+    .def("at",[](caf::Proxy<{0}> &prx, size_t i) -> caf::Proxy<{2}>&{{
+      return prx.at(i);
+    }})
+    .def("__getitem__",[](caf::Proxy<{0}> &prx, size_t i) -> caf::Proxy<{2}>&{{
+      return prx[i];
+    }})
+    .def("__iter__",
+        [](caf::Proxy<{0}> &prx) {{ return py::make_iterator(prx.begin(), prx.end()); }});
+)--",
+                               vector_type, GetPythonClassName(vector_type),
+                               GetVectorValueTypeName(vector_type));
+        py_emitted_vector_types.insert(vector_type);
+      }
+    }
+
+    out_pyb << fmt::format(R"--(
+  py::class_<caf::Proxy<{0}>>(m, "{1}") )--",
+                           classname, GetPythonClassName(classname));
+    out_pyb << fmt::format(memberlist_pyimpl.str());
+    out_pyb << fmt::format(R"(
+    .def("__getattr__",[](caf::Proxy<{0}> &prx, std::string const &attr){{
+      {1}
+      return py::cast(nullptr);
+    }});
+)",
+                           classname, basicmemberlist_pyimpl.str());
+  }
 }
 
 void Usage(char const *argv[]) {
@@ -473,6 +546,8 @@ Optional arguments:
   --epilog <file path>           : A file to include after the generated proxy class definition
   --epilog-fwd <file path>       : A file to include after the list of generated forward declarations
   --extra <classname> <file>     : A file to include in the definition of the proxy class for class <classname>
+
+  --emit-python-bindings         : Write pybind11 python bindings to <-o>.pybind.cxx
 
   -v|--verbose                   : Be louder
   -vv|--vverbose                 : Be even louder
@@ -524,6 +599,9 @@ void ParseOpts(int argc, char const *argv[]) {
       continue;
     } else if (arg == "--order-alphabetically") {
       order_alphabetically = true;
+      continue;
+    } else if (arg == "--emit-python-bindings") {
+      emit_python = true;
       continue;
     }
 
@@ -734,6 +812,20 @@ int main(int argc, char const *argv[]) {
   auto out_hdr = fmt::output_file(output_dir + output_file + ".h");
   auto out_impl = fmt::output_file(output_dir + output_file + ".cxx");
   auto out_fwd = fmt::output_file(output_dir + "FwdDeclare.h");
+  std::unique_ptr<std::ofstream> out_pyb;
+  if (emit_python) {
+    out_pyb = std::make_unique<std::ofstream>(output_dir + output_file +
+                                              ".pybind.cxx");
+
+    (*out_pyb) << fmt::format(R"(#include "{0}.h"
+
+#include "pybind11/pybind11.h"
+
+namespace py = pybind11;
+void py{1}(py::module &m) {{
+)",
+                              output_file, GetClassName(target_class));
+  }
 
   //   SRProxy Verion: {0}
   //   datetime: {1}
@@ -786,11 +878,17 @@ int main(int argc, char const *argv[]) {
                    gen_flat ? "flat::Flat" : "caf::Proxy", enumname);
   }
 
+  std::set<std::string> py_emitted_vector_types;
   for (auto classname : Declarations) {
     if (verbose) {
       fmt::print("Emitting proxy for class: \"{}\"\n", classname);
     }
-    EmitClass(classname, out_hdr, out_impl, out_fwd);
+    EmitClass(classname, out_hdr, out_impl, out_fwd, *out_pyb,
+              py_emitted_vector_types);
+  }
+
+  if (emit_python) {
+    (*out_pyb) << "}\n";
   }
 
   if (epilog_contents.size()) {
