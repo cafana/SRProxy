@@ -826,6 +826,8 @@ int main(int argc, char const *argv[]) {
     (*out_pyb) << fmt::format(R"(#include "{0}"
 #include "{1}.h"
 
+#include "SRProxy/python/ProxyFileReader.txx"
+
 #include "pybind11/pybind11.h"
 
 namespace py = pybind11;
@@ -896,6 +898,18 @@ PYBIND11_MODULE(py{1}, m) {{
   }
 
   if (emit_python) {
+
+    (*out_pyb) << fmt::format(R"(
+py::class_<ProxyFileReader<{0}>>(m, "{1}FileReader")
+      .def(py::init<std::string, std::vector<std::string> const &>())
+      .def(
+          "entries",
+          [](ProxyFileReader<{0}> &s) {{
+            return py::make_iterator(begin(s), end(s));
+          }},
+          py::keep_alive<0, 1>());
+)", target_class, GetClassName(target_class));
+
     (*out_pyb) << "}\n";
   }
 
