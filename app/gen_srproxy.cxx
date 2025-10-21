@@ -500,10 +500,10 @@ void EmitClass(std::string classname, fmt::ostream &out_hdr,
   py::class_<caf::Proxy<{0}>>(m, "{1}")
     .def("at",[](caf::Proxy<{0}> &prx, size_t i) -> caf::Proxy<{2}>&{{
       return prx.at(i);
-    }})
+    }}, py::return_value_policy::reference)
     .def("__getitem__",[](caf::Proxy<{0}> &prx, size_t i) -> caf::Proxy<{2}>&{{
       return prx[i];
-    }})
+    }}, py::return_value_policy::reference)
     .def("__iter__",
         [](caf::Proxy<{0}> &prx) {{ return py::make_iterator(prx.begin(), prx.end()); }});
 )--",
