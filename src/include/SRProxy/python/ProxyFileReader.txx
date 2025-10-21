@@ -25,22 +25,27 @@ public:
     gInterpreter->SetClassAutoloading(false);
     gInterpreter->SetClassAutoparsing(false);
 
+    sr_chain = std::make_unique<TChain>(chname.c_str());
+
+    for (auto const &f : infiles) {
+      sr_chain->Add(f.c_str());
+    }
+    nentries = sr_chain->GetEntries();
+    ientry = 0;
+
     std::string tname = chname;
     size_t fwsl_pos = tname.find_last_of('/');
     if (fwsl_pos != std::string::npos) {
       tname = tname.substr(fwsl_pos + 1);
     }
 
-    sr_chain = std::make_unique<TChain>(tname.c_str());
-
-    for (auto const &f : infiles) {
-      sr_chain->AddFile(f.c_str(), TTree::kMaxEntries, chname.c_str());
-    }
-    nentries = sr_chain->GetEntries();
-    ientry = 0;
-
-    srp = std::make_unique<caf::Proxy<T>>(sr_chain.get(), chname);
+    srp = std::make_unique<caf::Proxy<T>>(sr_chain.get(), tname);
   }
+
+  ProxyFileReader(std::string const &chname, std::string const &infiles)
+      : ProxyFileReader(chname, std::vector<std::string>{
+                                    infiles,
+                                }) {}
 
   pybind11::object first() {
     ientry = 0;
