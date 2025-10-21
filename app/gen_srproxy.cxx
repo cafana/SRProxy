@@ -902,8 +902,10 @@ PYBIND11_MODULE(py{1}, m) {{
     (*out_pyb) << fmt::format(R"(
 py::class_<ProxyFileReader<{0}>>(m, "{1}FileReader")
       .def(py::init<std::string const &, std::vector<std::string> const &>())
+      .def("entries", &ProxyFileReader<{0}>::entries)
+      .def("entry", &ProxyFileReader<{0}>::entry)
       .def(
-          "entries",
+          "iter",
           [](ProxyFileReader<{0}> &s) {{
             return py::make_iterator(begin(s), end(s));
           }},
