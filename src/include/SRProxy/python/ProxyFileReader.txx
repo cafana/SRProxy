@@ -1,6 +1,7 @@
 #include "SRProxy/BasicTypesProxy.h"
 
 #include "TChain.h"
+#include "TInterpreter.h"
 
 #include "pybind11/pybind11.h"
 #include "pybind11/stl.h"
@@ -20,6 +21,9 @@ template <typename T> class ProxyFileReader {
 public:
   ProxyFileReader(std::string const &chname,
                   std::vector<std::string> const &infiles) {
+
+    gInterpreter->SetClassAutoloading(false);
+    gInterpreter->SetClassAutoparsing(false);
 
     sr_chain = std::make_unique<TChain>(chname.c_str());
 
@@ -44,6 +48,12 @@ public:
     } else {
       return py::none();
     }
+  }
+
+  size_t entries() const { return nentries; }
+  pybind11::object entry(size_t i) {
+    ientry = i;
+    return next();
   }
 };
 
