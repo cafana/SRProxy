@@ -48,7 +48,7 @@ bool KnownType(std::string name) {
 }
 
 bool KnownClass(std::string name) {
-  if (name == "string") {
+  if ((name == "string") || (name == "std::string")) {
     return false; // pretend string is a primitive
   }
   return gInterpreter->ClassInfo_IsValid(
@@ -496,7 +496,10 @@ void EmitClass(std::string classname, fmt::ostream &out_hdr,
 
     for (auto const &vector_type : vector_types) {
       if (!py_emitted_vector_types.count(vector_type)) {
-        out_pyb << fmt::format(R"--(
+
+        auto vvt = GetVectorValueTypeName(vector_type);
+        if (KnownClass(vvt)) {
+          out_pyb << fmt::format(R"--(
   py::class_<caf::Proxy<{0}>>(m, "{1}")
     .def("at",[](caf::Proxy<{0}> &prx, size_t i) -> caf::Proxy<{2}>&{{
       return prx.at(i);
@@ -507,8 +510,24 @@ void EmitClass(std::string classname, fmt::ostream &out_hdr,
     .def("__iter__",
         [](caf::Proxy<{0}> &prx) {{ return py::make_iterator(prx.begin(), prx.end()); }});
 )--",
-                               vector_type, GetPythonClassName(vector_type),
-                               GetVectorValueTypeName(vector_type));
+                                 vector_type, GetPythonClassName(vector_type),
+                                 vvt);
+        } else { // builtin type that we can just return rather than returning
+                 // the proxy
+          out_pyb << fmt::format(R"--(
+  py::class_<caf::Proxy<{0}>>(m, "{1}")
+    .def("at",[](caf::Proxy<{0}> &prx, size_t i) {{
+      return prx.at(i).GetValue();
+    }})
+    .def("__getitem__",[](caf::Proxy<{0}> &prx, size_t i){{
+      return prx[i].GetValue();
+    }})
+    .def("__iter__",
+        [](caf::Proxy<{0}> &prx) {{ return py::make_iterator(prx.begin_remove_proxy(), prx.end_remove_proxy()); }});
+)--",
+                                 vector_type, GetPythonClassName(vector_type));
+        }
+
         py_emitted_vector_types.insert(vector_type);
       }
     }

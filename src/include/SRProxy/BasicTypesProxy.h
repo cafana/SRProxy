@@ -280,6 +280,37 @@ public:
   iterator<const T> end() const { return iterator<const T>(this, size()); }
   iterator<T> end() { return iterator<T>(this, size()); }
 
+  // U should be either T or const T
+  template <class U> class iterator_remove_proxy {
+  public:
+    T operator*() { return (*fParent)[fIdx].GetValue(); }
+    iterator_remove_proxy<U> &operator++() {
+      ++fIdx;
+      return *this;
+    }
+    bool operator!=(const iterator_remove_proxy<U> &it) const {
+      return fIdx != it.fIdx;
+    }
+    bool operator==(const iterator_remove_proxy<U> &it) const {
+      return fIdx == it.fIdx;
+    }
+
+  protected:
+    friend class Proxy<std::vector<T>>;
+    iterator_remove_proxy(const Proxy<std::vector<T>> *p, int i)
+        : fParent(p), fIdx(i) {}
+
+    const Proxy<std::vector<T>> *fParent;
+    size_t fIdx;
+  };
+
+  iterator_remove_proxy<T> begin_remove_proxy() {
+    return iterator_remove_proxy<T>(this, 0);
+  }
+  iterator_remove_proxy<T> end_remove_proxy() {
+    return iterator_remove_proxy<T>(this, size());
+  }
+
 protected:
   /// Implies CheckIndex()
   void EnsureLongEnough(size_t i) const {
