@@ -336,7 +336,6 @@ void EmitClass(std::string classname, fmt::ostream &out_hdr,
   std::stringstream memberlist;
 
   std::stringstream memberlist_pyimpl;
-  std::stringstream basicmemberlist_pyimpl;
 
   std::stringstream assign_body;
   std::stringstream checkequals_body;
@@ -443,10 +442,10 @@ void EmitClass(std::string classname, fmt::ostream &out_hdr,
                                          mname, classname, GetTypeName(dm));
 
       } else {
-        basicmemberlist_pyimpl << fmt::format(R"(if(attr == "{0}"){{ // {1}
-        return py::cast(prx.{0}.GetValue());
-      }})",
-                                              mname, GetTypeName(dm));
+        memberlist_pyimpl << fmt::format(R"--(
+    .def_property_readonly("{0}",[](caf::Proxy<{1}> &prx){{
+        return prx.{0}.GetValue(); }}) // {2})--",
+                                         mname, classname, GetTypeName(dm));
       }
     }
 
@@ -517,14 +516,7 @@ void EmitClass(std::string classname, fmt::ostream &out_hdr,
     out_pyb << fmt::format(R"--(
   py::class_<caf::Proxy<{0}>>(m, "{1}") )--",
                            classname, GetPythonClassName(classname));
-    out_pyb << fmt::format(memberlist_pyimpl.str());
-    out_pyb << fmt::format(R"(
-    .def("__getattr__",[](caf::Proxy<{0}> &prx, std::string const &attr){{
-      {1}
-      return py::cast(nullptr);
-    }});
-)",
-                           classname, basicmemberlist_pyimpl.str());
+    out_pyb << memberlist_pyimpl.str() << "\n;";
   }
 }
 
@@ -905,12 +897,13 @@ py::class_<ProxyFileReader<{0}>>(m, "{1}FileReader")
       .def("entries", &ProxyFileReader<{0}>::entries)
       .def("entry", &ProxyFileReader<{0}>::entry)
       .def(
-          "iter",
+          "__iter__",
           [](ProxyFileReader<{0}> &s) {{
             return py::make_iterator(begin(s), end(s));
           }},
           py::keep_alive<0, 1>());
-)", target_class, GetClassName(target_class));
+)",
+                              target_class, GetClassName(target_class));
 
     (*out_pyb) << "}\n";
   }
