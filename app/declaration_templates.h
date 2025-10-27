@@ -251,13 +251,12 @@ PYBIND11_MODULE(py{0}, m) {{
 
 std::string const lineage_ancestor_type_pydeclaration = R"--(
   py::class_<caf::Lineage> pyLineage(m, "Lineage");
-  py::native_enum<Lineage_typename>(m, "Lineage_typename", "enum.IntEnum"))--";
+  py::native_enum<Lineage_typename>(m, "typename", "enum.IntEnum"))--";
 
 std::string const lineage_ancestor_pytype = R"--(
     .value("{0}", Lineage_typename::{0}) )--";
 
 std::string const lineage_ancestor_type_pyfinalize = R"--(
-    .export_values()
     .finalize();
 )--";
 
