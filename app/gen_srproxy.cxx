@@ -811,6 +811,18 @@ int main(int argc, char const *argv[]) {
 
     (*out_pyb) << fmt::format(tmplt::python::impl_frontmatter, input_header,
                               output_file);
+
+    (*out_pyb) << tmplt::python::lineage_ancestor_type_cppdeclaration;
+    int enumid = 0;
+    for (auto classname : Declarations) {
+      (*out_pyb) << fmt::format(tmplt::python::lineage_ancestor_cpptype,
+                                GetPythonClassName(classname), enumid++);
+    }
+    (*out_pyb) << R"(
+};
+)";
+
+    (*out_pyb) << fmt::format(tmplt::python::module_declaration, output_file);
   }
 
   //   SRProxy Verion: {0}
@@ -865,11 +877,22 @@ int main(int argc, char const *argv[]) {
   }
 
   if (emit_python) {
-    (*out_pyb) << tmplt::python::lineage_declaration;
+
+    std::stringstream pyenumss, pyancestorss;
+
+    pyenumss << tmplt::python::lineage_ancestor_type_pydeclaration;
+    pyancestorss << tmplt::python::lineage_ancestor_function;
+    int enumid = 0;
     for (auto classname : Declarations) {
-      (*out_pyb) << fmt::format(tmplt::python::lineage_type, classname);
+      pyenumss << fmt::format(tmplt::python::lineage_ancestor_pytype,
+                              GetPythonClassName(classname));
+      pyancestorss << fmt::format(tmplt::python::lineage_ancestor_case,
+                                  GetPythonClassName(classname), classname);
     }
-    (*out_pyb) << tmplt::python::lineage_rvp;
+    pyenumss << tmplt::python::lineage_ancestor_type_pyfinalize;
+    pyancestorss << tmplt::python::lineage_default_rvp;
+
+    (*out_pyb) << pyenumss.str() << pyancestorss.str();
   }
 
   std::set<std::string> py_emitted_vector_types;

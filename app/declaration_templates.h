@@ -232,24 +232,48 @@ std::string const impl_frontmatter = R"(#include "{0}"
 #include "SRProxy/python/ProxyFileReader.txx"
 
 #include "pybind11/pybind11.h"
+#include "pybind11/native_enum.h"
 
 namespace py = pybind11;
 
-PYBIND11_MODULE(py{1}, m) {{
 )";
 
-std::string const lineage_declaration = R"--(
+std::string const lineage_ancestor_type_cppdeclaration = R"--(
+enum class Lineage_typenames {)--";
+
+std::string const lineage_ancestor_cpptype = R"--(
+  {0}={1},)--";
+
+std::string const module_declaration = R"(
+PYBIND11_MODULE(py{0}, m) {{
+)";
+
+
+std::string const lineage_ancestor_type_pydeclaration = R"--(
   py::class_<caf::Lineage> pyLineage(m, "Lineage");
-  pyLineage.def("Ancestor",
-    [](caf::Lineage const &prx, std::string const & tname){)--";
+  py::native_enum<Lineage_typenames>(pyLineage, "typename", "enum.IntEnum"))--";
 
-std::string const lineage_type = R"--(
-      if(tname == "{0}"){{ auto anc = prx.Ancestor<{0}>(); return anc ? py::cast(anc) : py::none(); }} )--";
+std::string const lineage_ancestor_pytype = R"--(
+    .value("{0}", Lineage_typenames::{0}) )--";
 
-std::string const lineage_rvp = R"--(
-    }, py::return_value_policy::reference);
+std::string const lineage_ancestor_type_pyfinalize = R"--(
+    .export_values()
+    .finalize();
 )--";
 
+std::string const lineage_ancestor_function = R"--(
+  pyLineage.def("Ancestor",
+    [](caf::Lineage const &prx, Lineage_typenames const & tname) -> pybind11::object {
+      switch(tname) {{)--";
+
+std::string const lineage_ancestor_case = R"--(
+        case Lineage_typenames::{0}: {{ auto anc = prx.Ancestor<{1}>(); return anc ? py::cast(anc) : py::none(); }} )--";
+
+std::string const lineage_default_rvp = R"--(
+        default: return py::none();
+      }}
+    }, py::return_value_policy::reference);
+)--";
 
 std::string const class_declaration = R"--(
   py::class_<caf::Proxy<{0}>>(m, "{1}", pyLineage) )--";
