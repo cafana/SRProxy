@@ -224,4 +224,66 @@ std::string const fill_member_body = "  {0}.Fill(sr.{0});\n";
 //{0} == MemberName
 std::string const clear_member_body = "  {0}.Clear();\n";
 
+namespace python {
+
+std::string const impl_frontmatter = R"(#include "{0}"
+#include "{1}.h"
+
+#include "SRProxy/python/ProxyFileReader.txx"
+
+#include "pybind11/pybind11.h"
+
+namespace py = pybind11;
+
+PYBIND11_MODULE(py{1}, m) {{
+)";
+
+std::string const class_declaration = R"--(
+  py::class_<caf::Proxy<{0}>>(m, "{1}") )--";
+
+std::string const datamember_proxy = R"--(
+    .def_readonly("{0}",&caf::Proxy<{1}>::{0}) // {2})--";
+
+std::string const datamember_basic_type = R"--(
+    .def_property_readonly("{0}",[](caf::Proxy<{1}> &prx){{
+        return prx.{0}.GetValue(); }}) // {2})--";
+
+std::string const vector_of_proxies = R"--(
+  py::class_<caf::Proxy<{0}>>(m, "{1}")
+    .def("at",[](caf::Proxy<{0}> &prx, size_t i) -> caf::Proxy<{2}>&{{
+      return prx.at(i);
+    }}, py::return_value_policy::reference)
+    .def("__getitem__",[](caf::Proxy<{0}> &prx, size_t i) -> caf::Proxy<{2}>&{{
+      return prx[i];
+    }}, py::return_value_policy::reference)
+    .def("__iter__",
+        [](caf::Proxy<{0}> &prx) {{ return py::make_iterator(prx.begin(), prx.end()); }});
+)--";
+std::string const vector_of_basic_types = R"--(
+  py::class_<caf::Proxy<{0}>>(m, "{1}")
+    .def("at",[](caf::Proxy<{0}> &prx, size_t i) {{
+      return prx.at(i).GetValue();
+    }})
+    .def("__getitem__",[](caf::Proxy<{0}> &prx, size_t i){{
+      return prx[i].GetValue();
+    }})
+    .def("__iter__",
+        [](caf::Proxy<{0}> &prx) {{ return py::make_iterator(prx.begin_remove_proxy(), prx.end_remove_proxy()); }});
+)--";
+
+std::string const proxyfilereader = R"(
+py::class_<ProxyFileReader<{0}>>(m, "{1}FileReader")
+      .def(py::init<std::string const &, std::vector<std::string> const &>())
+      .def(py::init<std::string const &, std::string const &>())
+      .def("entries", &ProxyFileReader<{0}>::entries)
+      .def("entry", &ProxyFileReader<{0}>::entry)
+      .def(
+          "__iter__",
+          [](ProxyFileReader<{0}> &s) {{
+            return py::make_iterator(begin(s), end(s));
+          }},
+          py::keep_alive<0, 1>());
+)";
+} // namespace python
+
 } // namespace tmplt

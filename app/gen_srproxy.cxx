@@ -437,14 +437,11 @@ void EmitClass(std::string classname, fmt::ostream &out_hdr,
         if (IsSTLVector(dm)) {
           vector_types.push_back(GetTypeName(dm));
         }
-        memberlist_pyimpl << fmt::format(R"--(
-    .def_readonly("{0}",&caf::Proxy<{1}>::{0}) // {2})--",
-                                         mname, classname, GetTypeName(dm));
+        memberlist_pyimpl << fmt::format(tmplt::python::datamember_proxy, mname,
+                                         classname, GetTypeName(dm));
 
       } else {
-        memberlist_pyimpl << fmt::format(R"--(
-    .def_property_readonly("{0}",[](caf::Proxy<{1}> &prx){{
-        return prx.{0}.GetValue(); }}) // {2})--",
+        memberlist_pyimpl << fmt::format(tmplt::python::datamember_basic_type,
                                          mname, classname, GetTypeName(dm));
       }
     }
@@ -499,32 +496,11 @@ void EmitClass(std::string classname, fmt::ostream &out_hdr,
 
         auto vvt = GetVectorValueTypeName(vector_type);
         if (KnownClass(vvt)) {
-          out_pyb << fmt::format(R"--(
-  py::class_<caf::Proxy<{0}>>(m, "{1}")
-    .def("at",[](caf::Proxy<{0}> &prx, size_t i) -> caf::Proxy<{2}>&{{
-      return prx.at(i);
-    }}, py::return_value_policy::reference)
-    .def("__getitem__",[](caf::Proxy<{0}> &prx, size_t i) -> caf::Proxy<{2}>&{{
-      return prx[i];
-    }}, py::return_value_policy::reference)
-    .def("__iter__",
-        [](caf::Proxy<{0}> &prx) {{ return py::make_iterator(prx.begin(), prx.end()); }});
-)--",
-                                 vector_type, GetPythonClassName(vector_type),
-                                 vvt);
+          out_pyb << fmt::format(tmplt::python::vector_of_proxies, vector_type,
+                                 GetPythonClassName(vector_type), vvt);
         } else { // builtin type that we can just return rather than returning
                  // the proxy
-          out_pyb << fmt::format(R"--(
-  py::class_<caf::Proxy<{0}>>(m, "{1}")
-    .def("at",[](caf::Proxy<{0}> &prx, size_t i) {{
-      return prx.at(i).GetValue();
-    }})
-    .def("__getitem__",[](caf::Proxy<{0}> &prx, size_t i){{
-      return prx[i].GetValue();
-    }})
-    .def("__iter__",
-        [](caf::Proxy<{0}> &prx) {{ return py::make_iterator(prx.begin_remove_proxy(), prx.end_remove_proxy()); }});
-)--",
+          out_pyb << fmt::format(tmplt::python::vector_of_basic_types,
                                  vector_type, GetPythonClassName(vector_type));
         }
 
@@ -532,9 +508,8 @@ void EmitClass(std::string classname, fmt::ostream &out_hdr,
       }
     }
 
-    out_pyb << fmt::format(R"--(
-  py::class_<caf::Proxy<{0}>>(m, "{1}") )--",
-                           classname, GetPythonClassName(classname));
+    out_pyb << fmt::format(tmplt::python::class_declaration, classname,
+                           GetPythonClassName(classname));
     out_pyb << memberlist_pyimpl.str() << "\n;";
   }
 }
@@ -834,17 +809,7 @@ int main(int argc, char const *argv[]) {
     out_pyb = std::make_unique<std::ofstream>(output_dir + output_file +
                                               ".pybind.cxx");
 
-    (*out_pyb) << fmt::format(R"(#include "{0}"
-#include "{1}.h"
-
-#include "SRProxy/python/ProxyFileReader.txx"
-
-#include "pybind11/pybind11.h"
-
-namespace py = pybind11;
-
-PYBIND11_MODULE(py{1}, m) {{
-)",
+    (*out_pyb) << fmt::format(tmplt::python::impl_frontmatter,
                               input_header, output_file);
   }
 
@@ -910,19 +875,7 @@ PYBIND11_MODULE(py{1}, m) {{
 
   if (emit_python) {
 
-    (*out_pyb) << fmt::format(R"(
-py::class_<ProxyFileReader<{0}>>(m, "{1}FileReader")
-      .def(py::init<std::string const &, std::vector<std::string> const &>())
-      .def(py::init<std::string const &, std::string const &>())
-      .def("entries", &ProxyFileReader<{0}>::entries)
-      .def("entry", &ProxyFileReader<{0}>::entry)
-      .def(
-          "__iter__",
-          [](ProxyFileReader<{0}> &s) {{
-            return py::make_iterator(begin(s), end(s));
-          }},
-          py::keep_alive<0, 1>());
-)",
+    (*out_pyb) << fmt::format(tmplt::python::proxyfilereader,
                               target_class, GetClassName(target_class));
 
     (*out_pyb) << "}\n";
