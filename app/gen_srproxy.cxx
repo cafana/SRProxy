@@ -809,8 +809,8 @@ int main(int argc, char const *argv[]) {
     out_pyb = std::make_unique<std::ofstream>(output_dir + output_file +
                                               ".pybind.cxx");
 
-    (*out_pyb) << fmt::format(tmplt::python::impl_frontmatter,
-                              input_header, output_file);
+    (*out_pyb) << fmt::format(tmplt::python::impl_frontmatter, input_header,
+                              output_file);
   }
 
   //   SRProxy Verion: {0}
@@ -864,6 +864,14 @@ int main(int argc, char const *argv[]) {
                    gen_flat ? "flat::Flat" : "caf::Proxy", enumname);
   }
 
+  if (emit_python) {
+    (*out_pyb) << tmplt::python::lineage_declaration;
+    for (auto classname : Declarations) {
+      (*out_pyb) << fmt::format(tmplt::python::lineage_type, classname);
+    }
+    (*out_pyb) << tmplt::python::lineage_rvp;
+  }
+
   std::set<std::string> py_emitted_vector_types;
   for (auto classname : Declarations) {
     if (verbose) {
@@ -875,8 +883,8 @@ int main(int argc, char const *argv[]) {
 
   if (emit_python) {
 
-    (*out_pyb) << fmt::format(tmplt::python::proxyfilereader,
-                              target_class, GetClassName(target_class));
+    (*out_pyb) << fmt::format(tmplt::python::proxyfilereader, target_class,
+                              GetClassName(target_class));
 
     (*out_pyb) << "}\n";
   }

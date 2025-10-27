@@ -238,8 +238,21 @@ namespace py = pybind11;
 PYBIND11_MODULE(py{1}, m) {{
 )";
 
+std::string const lineage_declaration = R"--(
+  py::class_<caf::Lineage> pyLineage(m, "Lineage");
+  pyLineage.def("Ancestor",
+    [](caf::Lineage const &prx, std::string const & tname){)--";
+
+std::string const lineage_type = R"--(
+      if(tname == "{0}"){{ auto anc = prx.Ancestor<{0}>(); return anc ? py::cast(anc) : py::none(); }} )--";
+
+std::string const lineage_rvp = R"--(
+    }, py::return_value_policy::reference);
+)--";
+
+
 std::string const class_declaration = R"--(
-  py::class_<caf::Proxy<{0}>>(m, "{1}") )--";
+  py::class_<caf::Proxy<{0}>>(m, "{1}", pyLineage) )--";
 
 std::string const datamember_proxy = R"--(
     .def_readonly("{0}",&caf::Proxy<{1}>::{0}) // {2})--";
@@ -249,7 +262,7 @@ std::string const datamember_basic_type = R"--(
         return prx.{0}.GetValue(); }}) // {2})--";
 
 std::string const vector_of_proxies = R"--(
-  py::class_<caf::Proxy<{0}>>(m, "{1}")
+  py::class_<caf::Proxy<{0}>>(m, "{1}", pyLineage)
     .def("at",[](caf::Proxy<{0}> &prx, size_t i) -> caf::Proxy<{2}>&{{
       return prx.at(i);
     }}, py::return_value_policy::reference)
@@ -260,7 +273,7 @@ std::string const vector_of_proxies = R"--(
         [](caf::Proxy<{0}> &prx) {{ return py::make_iterator(prx.begin(), prx.end()); }});
 )--";
 std::string const vector_of_basic_types = R"--(
-  py::class_<caf::Proxy<{0}>>(m, "{1}")
+  py::class_<caf::Proxy<{0}>>(m, "{1}", pyLineage)
     .def("at",[](caf::Proxy<{0}> &prx, size_t i) {{
       return prx.at(i).GetValue();
     }})
