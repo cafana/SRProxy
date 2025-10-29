@@ -109,6 +109,7 @@ std::string GetNS(std::string classname) {
   }
   return "";
 }
+
 std::string GetClassName(std::string classname) {
   size_t lpos = classname.rfind("::");
   if (lpos != std::string::npos) {
@@ -116,9 +117,11 @@ std::string GetClassName(std::string classname) {
   }
   return classname;
 }
+
 std::string GetShortProxyType(std::string classname) {
   return GetClassName(classname) + "Proxy";
 }
+
 std::string GetShortFlatType(std::string classname) {
   return std::string("Flat") + GetClassName(classname);
 }
