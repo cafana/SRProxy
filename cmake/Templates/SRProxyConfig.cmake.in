@@ -30,17 +30,17 @@ find_path(SRProxy_LIB_DIR
 )
 
 find_program(SRProxy_GENSRProxy_APP
-  NAMES bin/gen_SRProxy
+  NAMES bin/gen_srproxy
   PATHS ${SRProxy_CMAKE_DIR}/../../../
 )
 
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(SRProxy
-    REQUIRED_VARS 
-      SRProxy_INCLUDE_DIR 
+    REQUIRED_VARS
+      SRProxy_INCLUDE_DIR
       SRProxy_LIB_DIR
       SRProxy_GENSRProxy_APP
-    VERSION_VAR 
+    VERSION_VAR
       SRProxy_VERSION
 )
 

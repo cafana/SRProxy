@@ -877,9 +877,14 @@ int main(int argc, char const *argv[]) {
     }
     out_impl.print("template class {}<{}>;\n",
                    gen_flat ? "flat::Flat" : "caf::Proxy", enumname);
+
+     if (emit_python) {
+
+     }
   }
 
-  if (emit_python) {
+  if (emit_python) { // build the Proxied class type enum for use with
+                     // Lineage::Ancestor on the python side
 
     std::stringstream pyenumss, pyancestorss;
 
