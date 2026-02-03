@@ -94,7 +94,7 @@ std::string const hdr_prolog = R"(
 #pragma once
 
 {0}
-#include "SRProxy/BasicTypesProxy.txx"
+#include "SRProxy/BasicTypesProxy.h"
 
 #include "{1}FwdDeclare.h"
 
@@ -126,6 +126,7 @@ public:
 //{1} == Input
 std::string const cxx_prolog = R"(
 #include "{0}"
+#include "SRProxy/BasicTypesProxy.txx"
 
 #include "{1}"
 
