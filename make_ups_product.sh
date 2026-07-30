@@ -13,7 +13,7 @@ prodname_lower=srproxy
 prodname_mixed=SRProxy
 prodname_upper=SRPROXY
 
-INCS="BasicTypesProxy.h BasicTypesProxy.cxx FlatBasicTypes.h IBranchPolicy.h"
+INCS="BasicTypesProxy.h BasicTypesProxy.cxx FlatBasicTypes.h IBranchPolicy.h Exceptions.h"
 BINS='gen_srproxy'
 
 dest=$ups_dir/$prodname_lower/$version
