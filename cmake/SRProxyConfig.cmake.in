@@ -1,0 +1,12 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+# SRProxy's headers include ROOT (TTree, TFormLeafInfo, ...) and consumers
+# compile the shipped BasicTypesProxy.cxx against ROOT, so ROOT must be
+# available wherever SRProxy is used.
+find_dependency(ROOT CONFIG)
+
+include("${CMAKE_CURRENT_LIST_DIR}/SRProxyTargets.cmake")
+
+check_required_components(SRProxy)
